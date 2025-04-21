@@ -78,31 +78,27 @@ fn generate_wiki_folder(
             let output_html = output_json.with_extension("html");
             let output_html_rel = output_html.strip_prefix(dst_root).unwrap();
 
-            // Get parent folders of output_html_rel as a vec of strings
-            let parent_folders: Vec<String> = output_html_rel
-                .parent()
-                .map(|p| {
-                    p.components()
-                        .filter_map(|comp| match comp {
-                            std::path::Component::Normal(name) => {
-                                Some(name.to_string_lossy().into_owned())
-                            }
+            let route_path = paxhtml::RoutePath::new(
+                output_html_rel
+                    .parent()
+                    .iter()
+                    .map(|p| {
+                        p.components().filter_map(|comp| match comp {
+                            std::path::Component::Normal(name) => name.to_str(),
                             _ => None,
                         })
-                        .collect()
-                })
-                .unwrap_or_default();
+                    })
+                    .flatten(),
+                output_html_rel
+                    .file_name()
+                    .and_then(|s| s.to_str())
+                    .map(|s| s.to_string()),
+            );
 
-            layout(paxhtml::Element::Empty).write_to_route(
-                dst_root,
-                paxhtml::RoutePath::new(
-                    parent_folders.iter().map(|s| s.as_str()),
-                    output_html_rel
-                        .file_name()
-                        .and_then(|s| s.to_str())
-                        .map(|s| s.to_string()),
-                ),
-            )?;
+            layout(paxhtml::Element::from_iter(
+                simplified.iter().map(convert_wikitext_to_html),
+            ))
+            .write_to_route(dst_root, route_path)?;
         }
     }
 
@@ -147,4 +143,96 @@ fn layout(inner: paxhtml::Element) -> paxhtml::Document {
             </html>
         },
     ])
+}
+
+fn convert_wikitext_to_html(
+    node: &wikitext_simplified::WikitextSimplifiedNode,
+) -> paxhtml::Element {
+    use paxhtml::html;
+    use wikitext_simplified::WikitextSimplifiedNode as WSN;
+
+    match node {
+        WSN::Fragment { children } => {
+            paxhtml::Element::from_iter(children.iter().map(convert_wikitext_to_html))
+        }
+        WSN::Template { name, children } => html! { <>"template " {name}</> },
+        WSN::TemplateParameterUse { name, default } => {
+            html! { <>"template parameter use " {name}</> }
+        }
+        WSN::Heading { level, children } => {
+            paxhtml::builder::tag(format!("h{level}"), None, false)(paxhtml::Element::from_iter(
+                children.iter().map(convert_wikitext_to_html),
+            ))
+        }
+        WSN::Link { text, title } => {
+            html! { <a href={title}>{text}</a> }
+        }
+        WSN::ExtLink { link, text } => {
+            html! { <a href={link}>{text.as_ref().unwrap_or(&link)}</a> }
+        }
+        WSN::Bold { children } => {
+            html! { <strong>#{children.iter().map(convert_wikitext_to_html)}</strong> }
+        }
+        WSN::Italic { children } => {
+            html! { <em>#{children.iter().map(convert_wikitext_to_html)}</em> }
+        }
+        WSN::Blockquote { children } => {
+            html! { <blockquote>#{children.iter().map(convert_wikitext_to_html)}</blockquote> }
+        }
+        WSN::Superscript { children } => {
+            html! { <sup>#{children.iter().map(convert_wikitext_to_html)}</sup> }
+        }
+        WSN::Subscript { children } => {
+            html! { <sub>#{children.iter().map(convert_wikitext_to_html)}</sub> }
+        }
+        WSN::Small { children } => {
+            html! { <small>#{children.iter().map(convert_wikitext_to_html)}</small> }
+        }
+        WSN::Preformatted { children } => {
+            html! { <pre>#{children.iter().map(convert_wikitext_to_html)}</pre> }
+        }
+        WSN::Tag {
+            name,
+            attributes,
+            children,
+        } => paxhtml::builder::tag(name.to_string(), None, false)(paxhtml::Element::from_iter(
+            children.iter().map(convert_wikitext_to_html),
+        )),
+        WSN::Text { text } => html! { {text} },
+        WSN::Table {
+            attributes,
+            captions,
+            rows,
+        } => html! { "table" },
+        WSN::OrderedList { items } => {
+            html! {
+                <ol>
+                    {items
+                        .iter()
+                        .map(|i| {
+                            html! { <li>#{i.content.iter().map(convert_wikitext_to_html)}</li> }
+                        })
+                        .collect::<Vec<_>>()
+                    }
+                </ol>
+            }
+        }
+        WSN::UnorderedList { items } => {
+            html! {
+                <ul>
+                    {items
+                        .iter()
+                        .map(|i| {
+                            html! { <li>#{i.content.iter().map(convert_wikitext_to_html)}</li> }
+                        })
+                        .collect::<Vec<_>>()
+                    }
+                </ul>
+            }
+        }
+        WSN::Redirect { target } => html! { <a href={target}>{target}</a> },
+        WSN::HorizontalDivider => html! { <hr /> },
+        WSN::ParagraphBreak => html! { <br /> },
+        WSN::Newline => html! { <br /> },
+    }
 }
