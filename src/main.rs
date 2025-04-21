@@ -70,7 +70,7 @@ fn generate_wiki_folder(
                         )
                     })?;
 
-            let output_path = dst.join(path.file_name().unwrap());
+            let output_path = dst.join(path.with_extension("json").file_name().unwrap());
             fs::write(output_path, serde_json::to_string_pretty(&simplified)?)?;
         }
     }
