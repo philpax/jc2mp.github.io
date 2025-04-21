@@ -36,13 +36,14 @@ fn generate_wiki(src: &Path, dst: &Path) -> anyhow::Result<()> {
 
     let pwt_configuration = wikitext_simplified::wikitext_util::wikipedia_pwt_configuration();
 
-    generate_wiki_folder(src, dst, &pwt_configuration)?;
+    generate_wiki_folder(src, dst, dst, &pwt_configuration)?;
 
     Ok(())
 }
 
 fn generate_wiki_folder(
     src: &Path,
+    dst_root: &Path,
     dst: &Path,
     pwt_configuration: &wikitext_simplified::wikitext_util::parse_wiki_text_2::Configuration,
 ) -> anyhow::Result<()> {
@@ -56,6 +57,7 @@ fn generate_wiki_folder(
         if path.is_dir() {
             generate_wiki_folder(
                 &path,
+                dst_root,
                 &dst.join(path.file_name().unwrap()),
                 pwt_configuration,
             )?;
@@ -70,10 +72,79 @@ fn generate_wiki_folder(
                         )
                     })?;
 
-            let output_path = dst.join(path.with_extension("json").file_name().unwrap());
-            fs::write(output_path, serde_json::to_string_pretty(&simplified)?)?;
+            let output_json = dst.join(path.with_extension("json").file_name().unwrap());
+            fs::write(&output_json, serde_json::to_string_pretty(&simplified)?)?;
+
+            let output_html = output_json.with_extension("html");
+            let output_html_rel = output_html.strip_prefix(dst_root).unwrap();
+
+            // Get parent folders of output_html_rel as a vec of strings
+            let parent_folders: Vec<String> = output_html_rel
+                .parent()
+                .map(|p| {
+                    p.components()
+                        .filter_map(|comp| match comp {
+                            std::path::Component::Normal(name) => {
+                                Some(name.to_string_lossy().into_owned())
+                            }
+                            _ => None,
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+
+            layout(paxhtml::Element::Empty).write_to_route(
+                dst_root,
+                paxhtml::RoutePath::new(
+                    parent_folders.iter().map(|s| s.as_str()),
+                    output_html_rel
+                        .file_name()
+                        .and_then(|s| s.to_str())
+                        .map(|s| s.to_string()),
+                ),
+            )?;
         }
     }
 
     Ok(())
+}
+
+fn layout(inner: paxhtml::Element) -> paxhtml::Document {
+    paxhtml::Document::new([
+        paxhtml::builder::doctype(["html".into()]),
+        paxhtml::html! {
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8" />
+                <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+                <title>"JC2-MP Documentation"</title>
+                <link href="/style/bootstrap.min.css" rel="stylesheet" />
+            </head>
+            <body>
+                <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+                    <div class="container">
+                        <a class="navbar-brand" href="/">"Just Cause 2: Multiplayer"</a>
+                        <button class="navbar-toggler" r#type="button" dataBsToggle="collapse" dataBsTarget="#navbarNav" ariaControls="navbarNav" ariaExpanded="false" ariaLabel="Toggle navigation">
+                            <span class="navbar-toggler-icon"></span>
+                        </button>
+                        <div class="collapse navbar-collapse" id="navbarNav">
+                            <ul class="navbar-nav ms-auto">
+                                <li class="nav-item">
+                                    <a class="nav-link" href="/wiki">"Wiki"</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="/">"Website"</a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </nav>
+                <div class="container mt-4">
+                    {inner}
+                </div>
+                <script src="/js/bootstrap.bundle.min.js"></script>
+            </body>
+            </html>
+        },
+    ])
 }
