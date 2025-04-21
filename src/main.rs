@@ -119,15 +119,12 @@ fn layout(inner: paxhtml::Element) -> paxhtml::Document {
             <body>
                 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
                     <div class="container">
-                        <a class="navbar-brand" href="/">"Just Cause 2: Multiplayer"</a>
+                        <a class="navbar-brand" href="/wiki">"Just Cause 2: Multiplayer"</a>
                         <button class="navbar-toggler" r#type="button" dataBsToggle="collapse" dataBsTarget="#navbarNav" ariaControls="navbarNav" ariaExpanded="false" ariaLabel="Toggle navigation">
                             <span class="navbar-toggler-icon"></span>
                         </button>
                         <div class="collapse navbar-collapse" id="navbarNav">
                             <ul class="navbar-nav ms-auto">
-                                <li class="nav-item">
-                                    <a class="nav-link" href="/wiki">"Wiki"</a>
-                                </li>
                                 <li class="nav-item">
                                     <a class="nav-link" href="/">"Website"</a>
                                 </li>
