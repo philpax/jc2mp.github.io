@@ -148,6 +148,10 @@ fn convert_wikitext_to_html(
     use paxhtml::html;
     use wikitext_simplified::WikitextSimplifiedNode as WSN;
 
+    fn parse_optional_attributes(attributes: &Option<String>) -> Vec<paxhtml::Attribute> {
+        paxhtml::Attribute::parse_from_str(attributes.as_deref().unwrap_or_default()).unwrap()
+    }
+
     match node {
         WSN::Fragment { children } => {
             paxhtml::Element::from_iter(children.iter().map(convert_wikitext_to_html))
@@ -194,7 +198,7 @@ fn convert_wikitext_to_html(
             children,
         } => paxhtml::builder::tag(
             name.to_string(),
-            paxhtml::Attribute::parse_from_str(attributes.as_deref().unwrap_or_default()).unwrap(),
+            parse_optional_attributes(attributes),
             false,
         )(paxhtml::Element::from_iter(
             children.iter().map(convert_wikitext_to_html),
@@ -204,16 +208,56 @@ fn convert_wikitext_to_html(
             attributes,
             captions,
             rows,
-        } => html! { "table" },
+        } => {
+            let attributes = paxhtml::Attribute::parse_from_str(attributes).unwrap();
+            html! {
+                <table {attributes}>
+                    <thead>
+                        <tr>
+                            #{captions
+                                .iter()
+                                .map(|caption| {
+                                    html! {
+                                        <th {parse_optional_attributes(&caption.attributes)}>
+                                            #{caption.content.iter().map(convert_wikitext_to_html)}
+                                        </th>
+                                    }
+                                })
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        #{rows
+                            .iter()
+                            .map(|row| {
+                                html! {
+                                    <tr {parse_optional_attributes(&row.attributes)}>
+                                        #{row.cells
+                                            .iter()
+                                            .map(|cell| {
+                                                html! {
+                                                    <td {parse_optional_attributes(&cell.attributes)}>
+                                                        #{cell.content.iter().map(convert_wikitext_to_html)}
+                                                    </td>
+                                                }
+                                            })
+                                        }
+                                    </tr>
+                                }
+                            })
+                        }
+                    </tbody>
+                </table>
+            }
+        }
         WSN::OrderedList { items } => {
             html! {
                 <ol>
-                    {items
+                    #{items
                         .iter()
                         .map(|i| {
                             html! { <li>#{i.content.iter().map(convert_wikitext_to_html)}</li> }
                         })
-                        .collect::<Vec<_>>()
                     }
                 </ol>
             }
@@ -221,12 +265,11 @@ fn convert_wikitext_to_html(
         WSN::UnorderedList { items } => {
             html! {
                 <ul>
-                    {items
+                    #{items
                         .iter()
                         .map(|i| {
                             html! { <li>#{i.content.iter().map(convert_wikitext_to_html)}</li> }
                         })
-                        .collect::<Vec<_>>()
                     }
                 </ul>
             }
