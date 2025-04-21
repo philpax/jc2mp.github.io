@@ -192,7 +192,11 @@ fn convert_wikitext_to_html(
             name,
             attributes,
             children,
-        } => paxhtml::builder::tag(name.to_string(), None, false)(paxhtml::Element::from_iter(
+        } => paxhtml::builder::tag(
+            name.to_string(),
+            paxhtml::Attribute::parse_from_str(attributes.as_deref().unwrap_or_default()).unwrap(),
+            false,
+        )(paxhtml::Element::from_iter(
             children.iter().map(convert_wikitext_to_html),
         )),
         WSN::Text { text } => html! { {text} },

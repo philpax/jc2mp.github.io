@@ -56,7 +56,7 @@ source = "git+https://github.com/philpax/parse-wiki-text-2.git?branch=wasm-suppo
 [[package]]
 name = "paxhtml"
 version = "0.1.0"
-source = "git+https://github.com/philpax/paxhtml.git#f2353345a46cc5911bcb324698d5d5a3b2cb0356"
+source = "git+https://github.com/philpax/paxhtml.git#ccdb1a48e30f5fe72a750cc5a699b06072c7dafa"
 dependencies = [
  "html-escape",
  "paxhtml_macro",
@@ -65,7 +65,7 @@ dependencies = [
 [[package]]
 name = "paxhtml_macro"
 version = "0.1.0"
-source = "git+https://github.com/philpax/paxhtml.git#f2353345a46cc5911bcb324698d5d5a3b2cb0356"
+source = "git+https://github.com/philpax/paxhtml.git#ccdb1a48e30f5fe72a750cc5a699b06072c7dafa"
 dependencies = [
  "convert_case",
  "proc-macro2",
