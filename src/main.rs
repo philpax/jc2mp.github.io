@@ -166,10 +166,18 @@ fn convert_wikitext_to_html(
             ))
         }
         WSN::Link { text, title } => {
-            html! { <a href={title}>{text}</a> }
+            html! {
+                <a href={title}>
+                    {paxhtml::Element::Raw { html: text.to_string() }}
+                </a>
+            }
         }
         WSN::ExtLink { link, text } => {
-            html! { <a href={link}>{text.as_ref().unwrap_or(&link)}</a> }
+            html! {
+                <a href={link}>
+                    {paxhtml::Element::Raw { html: text.as_ref().unwrap_or(&link).to_string() }}
+                </a>
+            }
         }
         WSN::Bold { children } => {
             html! { <strong>#{children.iter().map(convert_wikitext_to_html)}</strong> }
@@ -203,7 +211,9 @@ fn convert_wikitext_to_html(
         )(paxhtml::Element::from_iter(
             children.iter().map(convert_wikitext_to_html),
         )),
-        WSN::Text { text } => html! { {text} },
+        WSN::Text { text } => paxhtml::Element::Raw {
+            html: text.to_string(),
+        },
         WSN::Table {
             attributes,
             captions,
