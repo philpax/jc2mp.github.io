@@ -1,5 +1,7 @@
 use std::{fs, path::Path};
 
+const WIKI_DIRECTORY: &str = "wiki";
+
 fn main() -> anyhow::Result<()> {
     let output_dir = Path::new("output");
     let _ = fs::remove_dir_all(output_dir);
@@ -9,7 +11,7 @@ fn main() -> anyhow::Result<()> {
     copy_files_recursively(Path::new("static"), output_dir)?;
 
     // Generate wiki
-    generate_wiki(Path::new("wiki"), &output_dir.join("wiki"))?;
+    generate_wiki(Path::new(WIKI_DIRECTORY), &output_dir.join(WIKI_DIRECTORY))?;
 
     Ok(())
 }
@@ -166,8 +168,15 @@ fn convert_wikitext_to_html(
             ))
         }
         WSN::Link { text, title } => {
+            let title_link = title.replace(" ", "_");
+            let segments = title_link.split('/').collect::<Vec<_>>();
+            let (page_name, directories) = segments.split_last().unwrap();
+            let route_path = paxhtml::RoutePath::new(
+                std::iter::once("wiki").chain(directories.iter().copied()),
+                Some(format!("{page_name}.html")),
+            );
             html! {
-                <a href={title}>
+                <a href={route_path.url_path()}>
                     {paxhtml::Element::Raw { html: text.to_string() }}
                 </a>
             }
