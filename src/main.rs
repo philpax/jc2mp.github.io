@@ -1,5 +1,7 @@
 use std::{fs, path::Path};
 
+use wikitext_simplified::WikitextSimplifiedNode;
+
 const WIKI_DIRECTORY: &str = "wiki";
 
 fn main() -> anyhow::Result<()> {
@@ -39,6 +41,8 @@ fn generate_wiki(src: &Path, dst: &Path) -> anyhow::Result<()> {
     let pwt_configuration = wikitext_simplified::wikitext_util::wikipedia_pwt_configuration();
 
     generate_wiki_folder(src, dst, dst, &pwt_configuration)?;
+    redirect(&page_title_to_route_path("Main_Page").url_path())
+        .write_to_route(dst, paxhtml::RoutePath::new([], "index.html".to_string()))?;
 
     Ok(())
 }
@@ -97,10 +101,16 @@ fn generate_wiki_folder(
                     .map(|s| s.to_string()),
             );
 
-            layout(paxhtml::Element::from_iter(
-                simplified.iter().map(convert_wikitext_to_html),
-            ))
-            .write_to_route(dst_root, route_path)?;
+            let document =
+                if let [WikitextSimplifiedNode::Redirect { target }] = simplified.as_slice() {
+                    redirect(&page_title_to_route_path(target).url_path())
+                } else {
+                    layout(paxhtml::Element::from_iter(
+                        simplified.iter().map(convert_wikitext_to_html),
+                    ))
+                };
+
+            document.write_to_route(dst_root, route_path)?;
         }
     }
 
@@ -144,11 +154,9 @@ fn layout(inner: paxhtml::Element) -> paxhtml::Document {
     ])
 }
 
-fn convert_wikitext_to_html(
-    node: &wikitext_simplified::WikitextSimplifiedNode,
-) -> paxhtml::Element {
+fn convert_wikitext_to_html(node: &WikitextSimplifiedNode) -> paxhtml::Element {
+    use WikitextSimplifiedNode as WSN;
     use paxhtml::html;
-    use wikitext_simplified::WikitextSimplifiedNode as WSN;
 
     fn parse_optional_attributes(attributes: &Option<String>) -> Vec<paxhtml::Attribute> {
         paxhtml::Attribute::parse_from_str(attributes.as_deref().unwrap_or_default()).unwrap()
@@ -168,15 +176,8 @@ fn convert_wikitext_to_html(
             ))
         }
         WSN::Link { text, title } => {
-            let title_link = title.replace(" ", "_");
-            let segments = title_link.split('/').collect::<Vec<_>>();
-            let (page_name, directories) = segments.split_last().unwrap();
-            let route_path = paxhtml::RoutePath::new(
-                std::iter::once("wiki").chain(directories.iter().copied()),
-                Some(format!("{page_name}.html")),
-            );
             html! {
-                <a href={route_path.url_path()}>
+                <a href={page_title_to_route_path(title).url_path()}>
                     {paxhtml::Element::Raw { html: text.to_string() }}
                 </a>
             }
@@ -293,9 +294,47 @@ fn convert_wikitext_to_html(
                 </ul>
             }
         }
-        WSN::Redirect { target } => html! { <a href={target}>{target}</a> },
+        WSN::Redirect { target } => html! {
+            <a href={page_title_to_route_path(target).url_path()}>
+                "REDIRECT: "{target}
+            </a>
+        },
         WSN::HorizontalDivider => html! { <hr /> },
         WSN::ParagraphBreak => html! { <br /> },
         WSN::Newline => html! { <br /> },
     }
+}
+
+fn page_title_to_route_path(title: &str) -> paxhtml::RoutePath {
+    let title_link = title.replace(" ", "_");
+    let segments = title_link.split('/').collect::<Vec<_>>();
+    let (page_name, directories) = segments.split_last().unwrap();
+
+    paxhtml::RoutePath::new(
+        std::iter::once(WIKI_DIRECTORY).chain(directories.iter().copied()),
+        Some(format!("{page_name}.html")),
+    )
+}
+
+fn redirect(to_url: &str) -> paxhtml::Document {
+    paxhtml::Document::new([
+        paxhtml::builder::doctype(["html".into()]),
+        paxhtml::html! {
+            <html>
+                <head>
+                    <title>"Redirecting..."</title>
+                    <meta charset="utf-8" />
+                    <meta httpEquiv="refresh" content={format!("0; url={to_url}")} />
+                </head>
+                <body>
+                    <p>"Redirecting..."</p>
+                    <p>
+                        <a href={to_url} title="Click here if you are not redirected">
+                            "Click here"
+                        </a>
+                    </p>
+                </body>
+            </html>
+        },
+    ])
 }
