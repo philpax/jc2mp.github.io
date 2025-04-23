@@ -1,6 +1,12 @@
-use std::{fs, path::Path};
+use std::{
+    collections::HashMap,
+    fs,
+    path::{Path, PathBuf},
+};
 
-use wikitext_simplified::WikitextSimplifiedNode;
+use wikitext_simplified::{
+    TemplateParameter, WikitextSimplifiedNode, wikitext_util::parse_wiki_text_2,
+};
 
 const WIKI_DIRECTORY: &str = "wiki";
 
@@ -39,8 +45,9 @@ fn generate_wiki(src: &Path, dst: &Path) -> anyhow::Result<()> {
     fs::create_dir_all(dst)?;
 
     let pwt_configuration = wikitext_simplified::wikitext_util::wikipedia_pwt_configuration();
+    let mut templates = Templates::new(src, &pwt_configuration)?;
 
-    generate_wiki_folder(src, dst, dst, &pwt_configuration)?;
+    generate_wiki_folder(&mut templates, src, dst, dst, &pwt_configuration)?;
     redirect(&page_title_to_route_path("Main_Page").url_path())
         .write_to_route(dst, paxhtml::RoutePath::new([], "index.html".to_string()))?;
 
@@ -48,10 +55,11 @@ fn generate_wiki(src: &Path, dst: &Path) -> anyhow::Result<()> {
 }
 
 fn generate_wiki_folder(
+    templates: &mut Templates,
     src: &Path,
     dst_root: &Path,
     dst: &Path,
-    pwt_configuration: &wikitext_simplified::wikitext_util::parse_wiki_text_2::Configuration,
+    pwt_configuration: &parse_wiki_text_2::Configuration,
 ) -> anyhow::Result<()> {
     fs::create_dir_all(dst)?;
 
@@ -62,6 +70,7 @@ fn generate_wiki_folder(
 
         if path.is_dir() {
             generate_wiki_folder(
+                templates,
                 &path,
                 dst_root,
                 &dst.join(path.file_name().unwrap()),
@@ -101,6 +110,13 @@ fn generate_wiki_folder(
                     .map(|s| s.to_string()),
             );
 
+            let sub_page_name = path
+                .with_extension("")
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .to_string();
+
             let title = output_html_rel
                 .with_extension("")
                 .to_str()
@@ -112,13 +128,15 @@ fn generate_wiki_folder(
             let document = if let [WikitextSimplifiedNode::Redirect { target }] =
                 simplified.as_slice()
             {
-                    redirect(&page_title_to_route_path(target).url_path())
-                } else {
+                redirect(&page_title_to_route_path(target).url_path())
+            } else {
                 layout(
                     &title,
-                    paxhtml::Element::from_iter(simplified.iter().map(convert_wikitext_to_html)),
+                    paxhtml::Element::from_iter(simplified.iter().map(|node| {
+                        convert_wikitext_to_html(templates, pwt_configuration, node, &sub_page_name)
+                    })),
                 )
-                };
+            };
 
             document.write_to_route(dst_root, route_path)?;
         }
@@ -165,7 +183,12 @@ fn layout(title: &str, inner: paxhtml::Element) -> paxhtml::Document {
     ])
 }
 
-fn convert_wikitext_to_html(node: &WikitextSimplifiedNode) -> paxhtml::Element {
+fn convert_wikitext_to_html(
+    templates: &mut Templates,
+    pwt_configuration: &parse_wiki_text_2::Configuration,
+    node: &WikitextSimplifiedNode,
+    sub_page_name: &str,
+) -> paxhtml::Element {
     use WikitextSimplifiedNode as WSN;
     use paxhtml::html;
 
@@ -173,18 +196,32 @@ fn convert_wikitext_to_html(node: &WikitextSimplifiedNode) -> paxhtml::Element {
         paxhtml::Attribute::parse_from_str(attributes.as_deref().unwrap_or_default()).unwrap()
     }
 
+    let mut convert_children = |children: &[WikitextSimplifiedNode]| {
+        paxhtml::Element::from_iter(children.iter().map(|node| {
+            convert_wikitext_to_html(templates, pwt_configuration, node, sub_page_name)
+        }))
+    };
+
     match node {
-        WSN::Fragment { children } => {
-            paxhtml::Element::from_iter(children.iter().map(convert_wikitext_to_html))
+        WSN::Fragment { children } => convert_children(children),
+        WSN::Template { name, parameters } => {
+            let template = instantiate_template(
+                templates,
+                pwt_configuration,
+                TemplateToInstantiate::Name(name),
+                parameters,
+                sub_page_name,
+            );
+            // if sub_page_name == "GetCellId" {
+            //     dbg!(&template);
+            // }
+            convert_wikitext_to_html(templates, pwt_configuration, &template, sub_page_name)
         }
-        WSN::Template { name, children } => html! { <>"template " {name}</> },
-        WSN::TemplateParameterUse { name, default } => {
-            html! { <>"template parameter use " {name}</> }
+        tpu @ WSN::TemplateParameterUse { .. } => {
+            html! { <>{tpu.to_wikitext()}</> }
         }
         WSN::Heading { level, children } => {
-            paxhtml::builder::tag(format!("h{level}"), None, false)(paxhtml::Element::from_iter(
-                children.iter().map(convert_wikitext_to_html),
-            ))
+            paxhtml::builder::tag(format!("h{level}"), None, false)(convert_children(children))
         }
         WSN::Link { text, title } => {
             html! {
@@ -201,25 +238,25 @@ fn convert_wikitext_to_html(node: &WikitextSimplifiedNode) -> paxhtml::Element {
             }
         }
         WSN::Bold { children } => {
-            html! { <strong>#{children.iter().map(convert_wikitext_to_html)}</strong> }
+            html! { <strong>{convert_children(children)}</strong> }
         }
         WSN::Italic { children } => {
-            html! { <em>#{children.iter().map(convert_wikitext_to_html)}</em> }
+            html! { <em>{convert_children(children)}</em> }
         }
         WSN::Blockquote { children } => {
-            html! { <blockquote>#{children.iter().map(convert_wikitext_to_html)}</blockquote> }
+            html! { <blockquote>{convert_children(children)}</blockquote> }
         }
         WSN::Superscript { children } => {
-            html! { <sup>#{children.iter().map(convert_wikitext_to_html)}</sup> }
+            html! { <sup>{convert_children(children)}</sup> }
         }
         WSN::Subscript { children } => {
-            html! { <sub>#{children.iter().map(convert_wikitext_to_html)}</sub> }
+            html! { <sub>{convert_children(children)}</sub> }
         }
         WSN::Small { children } => {
-            html! { <small>#{children.iter().map(convert_wikitext_to_html)}</small> }
+            html! { <small>{convert_children(children)}</small> }
         }
         WSN::Preformatted { children } => {
-            html! { <pre>#{children.iter().map(convert_wikitext_to_html)}</pre> }
+            html! { <pre>{convert_children(children)}</pre> }
         }
         WSN::Tag {
             name,
@@ -229,9 +266,7 @@ fn convert_wikitext_to_html(node: &WikitextSimplifiedNode) -> paxhtml::Element {
             name.to_string(),
             parse_optional_attributes(attributes),
             false,
-        )(paxhtml::Element::from_iter(
-            children.iter().map(convert_wikitext_to_html),
-        )),
+        )(convert_children(children)),
         WSN::Text { text } => paxhtml::Element::Raw {
             html: text.to_string(),
         },
@@ -250,7 +285,7 @@ fn convert_wikitext_to_html(node: &WikitextSimplifiedNode) -> paxhtml::Element {
                                 .map(|caption| {
                                     html! {
                                         <th {parse_optional_attributes(&caption.attributes)}>
-                                            #{caption.content.iter().map(convert_wikitext_to_html)}
+                                            {convert_children(&caption.content)}
                                         </th>
                                     }
                                 })
@@ -268,7 +303,7 @@ fn convert_wikitext_to_html(node: &WikitextSimplifiedNode) -> paxhtml::Element {
                                             .map(|cell| {
                                                 html! {
                                                     <td {parse_optional_attributes(&cell.attributes)}>
-                                                        #{cell.content.iter().map(convert_wikitext_to_html)}
+                                                        {convert_children(&cell.content)}
                                                     </td>
                                                 }
                                             })
@@ -287,7 +322,7 @@ fn convert_wikitext_to_html(node: &WikitextSimplifiedNode) -> paxhtml::Element {
                     #{items
                         .iter()
                         .map(|i| {
-                            html! { <li>#{i.content.iter().map(convert_wikitext_to_html)}</li> }
+                            html! { <li>{convert_children(&i.content)}</li> }
                         })
                     }
                 </ol>
@@ -299,7 +334,7 @@ fn convert_wikitext_to_html(node: &WikitextSimplifiedNode) -> paxhtml::Element {
                     #{items
                         .iter()
                         .map(|i| {
-                            html! { <li>#{i.content.iter().map(convert_wikitext_to_html)}</li> }
+                            html! { <li>{convert_children(&i.content)}</li> }
                         })
                     }
                 </ul>
@@ -314,6 +349,176 @@ fn convert_wikitext_to_html(node: &WikitextSimplifiedNode) -> paxhtml::Element {
         WSN::ParagraphBreak => html! { <br /> },
         WSN::Newline => html! { <br /> },
     }
+}
+
+struct Templates<'a> {
+    pwt_configuration: &'a parse_wiki_text_2::Configuration,
+    lookup: HashMap<String, PathBuf>,
+    templates: HashMap<String, WikitextSimplifiedNode>,
+}
+impl<'a> Templates<'a> {
+    fn new(
+        src_root: &Path,
+        pwt_configuration: &'a parse_wiki_text_2::Configuration,
+    ) -> anyhow::Result<Self> {
+        let mut lookup = HashMap::new();
+        let templates = HashMap::new();
+
+        fn scan_dir(
+            src_root: &Path,
+            path: &Path,
+            lookup: &mut HashMap<String, PathBuf>,
+        ) -> anyhow::Result<()> {
+            for entry in fs::read_dir(path)? {
+                let entry = entry?;
+                let path = entry.path();
+
+                if path.is_dir() {
+                    scan_dir(src_root, &path, lookup)?;
+                } else if path.is_file() {
+                    let key = path
+                        .strip_prefix(src_root)?
+                        .with_extension("")
+                        .as_os_str()
+                        .to_string_lossy()
+                        .to_lowercase()
+                        .replace("\\", "/")
+                        .replace(" ", "_");
+                    lookup.insert(key, path);
+                }
+            }
+
+            Ok(())
+        }
+
+        scan_dir(src_root, src_root, &mut lookup)?;
+
+        Ok(Self {
+            pwt_configuration,
+            lookup,
+            templates,
+        })
+    }
+
+    fn get(&mut self, name: &str) -> anyhow::Result<&WikitextSimplifiedNode> {
+        let key = name.to_lowercase().replace(" ", "_");
+        let path = self
+            .lookup
+            .get(&key)
+            .ok_or(anyhow::anyhow!("Template not found: {name} -> {key}"))?;
+        let content = fs::read_to_string(path)?;
+        let simplified =
+            wikitext_simplified::parse_and_simplify_wikitext(&content, self.pwt_configuration)
+                .map_err(|e| {
+                    anyhow::anyhow!(
+                        "Failed to parse and simplify wiki file {}: {e:?}",
+                        path.display()
+                    )
+                })?;
+        self.templates.insert(
+            key.to_string(),
+            WikitextSimplifiedNode::Fragment {
+                children: simplified,
+            },
+        );
+
+        Ok(&self.templates[&key])
+    }
+}
+
+enum TemplateToInstantiate<'a> {
+    Name(&'a str),
+    Node(WikitextSimplifiedNode),
+}
+
+/// Instantiate the template by replacing all template parameter uses with their values,
+/// instantiating nested templates, converting back to wikitext, and then doing this until
+/// no more template parameter uses or nested templates are found.
+///
+/// God, I love wikitext.
+fn instantiate_template(
+    templates: &mut Templates,
+    pwt_configuration: &parse_wiki_text_2::Configuration,
+    template: TemplateToInstantiate,
+    parameters: &[TemplateParameter],
+    sub_page_name: &str,
+) -> WikitextSimplifiedNode {
+    use WikitextSimplifiedNode as WSN;
+
+    let mut template = match template {
+        TemplateToInstantiate::Name(name) => {
+            if name.eq_ignore_ascii_case("subpagename") {
+                return WSN::Text {
+                    text: sub_page_name.to_string(),
+                };
+            }
+            templates.get(name).unwrap().clone()
+        }
+        TemplateToInstantiate::Node(node) => node,
+    };
+
+    // Check if we're done
+    let mut further_instantiation_required = false;
+    template.visit(&mut |node| {
+        further_instantiation_required |= matches!(
+            node,
+            WSN::TemplateParameterUse { .. } | WSN::Template { .. }
+        );
+    });
+    if !further_instantiation_required {
+        return template;
+    }
+
+    // Instantiate all nested templates, and replace
+    template.visit_and_replace_mut(&mut |node| match node {
+        WSN::Template { name, parameters } => instantiate_template(
+            templates,
+            pwt_configuration,
+            TemplateToInstantiate::Name(&name),
+            &parameters,
+            sub_page_name,
+        ),
+        WSN::TemplateParameterUse { name, default } => {
+            let parameter = parameters
+                .iter()
+                .find(|p| p.name == *name)
+                .map(|p| p.value.clone())
+                .or_else(|| {
+                    name.eq_ignore_ascii_case("subpagename")
+                        .then(|| sub_page_name.to_string())
+                });
+            if let Some(parameter) = parameter {
+                WSN::Text { text: parameter }
+            } else if let Some(default) = default {
+                WSN::Text {
+                    text: WSN::Fragment {
+                        children: default.clone(),
+                    }
+                    .to_wikitext(),
+                }
+            } else {
+                WSN::Text {
+                    text: "".to_string(),
+                }
+            }
+        }
+        _ => node.clone(),
+    });
+
+    // Convert the template back to wikitext, then reparse it, and then send it through again
+    let template_wikitext = template.to_wikitext();
+    let template =
+        wikitext_simplified::parse_and_simplify_wikitext(&template_wikitext, pwt_configuration)
+            .unwrap_or_else(|e| {
+                panic!("Failed to parse and simplify template {template_wikitext}: {e:?}")
+            });
+    instantiate_template(
+        templates,
+        pwt_configuration,
+        TemplateToInstantiate::Node(WikitextSimplifiedNode::Fragment { children: template }),
+        parameters,
+        sub_page_name,
+    )
 }
 
 fn page_title_to_route_path(title: &str) -> paxhtml::RoutePath {
