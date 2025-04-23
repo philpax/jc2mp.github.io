@@ -97,13 +97,12 @@ fn generate_wiki_folder(
                 output_html_rel
                     .parent()
                     .iter()
-                    .map(|p| {
+                    .flat_map(|p| {
                         p.components().filter_map(|comp| match comp {
                             std::path::Component::Normal(name) => name.to_str(),
                             _ => None,
                         })
-                    })
-                    .flatten(),
+                    }),
                 output_html_rel
                     .file_name()
                     .and_then(|s| s.to_str())
@@ -233,7 +232,7 @@ fn convert_wikitext_to_html(
         WSN::ExtLink { link, text } => {
             html! {
                 <a href={link}>
-                    {paxhtml::Element::Raw { html: text.as_ref().unwrap_or(&link).to_string() }}
+                    {paxhtml::Element::Raw { html: text.as_ref().unwrap_or(link).to_string() }}
                 </a>
             }
         }
@@ -474,8 +473,8 @@ fn instantiate_template(
         WSN::Template { name, parameters } => instantiate_template(
             templates,
             pwt_configuration,
-            TemplateToInstantiate::Name(&name),
-            &parameters,
+            TemplateToInstantiate::Name(name),
+            parameters,
             sub_page_name,
         ),
         WSN::TemplateParameterUse { name, default } => {
