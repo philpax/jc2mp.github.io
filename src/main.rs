@@ -1,6 +1,6 @@
 use std::{fs, path::Path};
 
-use template::{TemplateToInstantiate, Templates, instantiate_template};
+use template::{TemplateToInstantiate, Templates};
 use wikitext_simplified::{WikitextSimplifiedNode, wikitext_util::parse_wiki_text_2};
 
 mod template;
@@ -198,8 +198,7 @@ fn convert_wikitext_to_html(
     match node {
         WSN::Fragment { children } => convert_children(children),
         WSN::Template { name, parameters } => {
-            let template = instantiate_template(
-                templates,
+            let template = templates.instantiate(
                 pwt_configuration,
                 TemplateToInstantiate::Name(name),
                 parameters,

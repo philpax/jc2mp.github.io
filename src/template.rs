@@ -79,99 +79,97 @@ impl<'a> Templates<'a> {
 
         Ok(&self.templates[&key])
     }
+
+    /// Instantiate the template by replacing all template parameter uses with their values,
+    /// instantiating nested templates, converting back to wikitext, and then doing this until
+    /// no more template parameter uses or nested templates are found.
+    ///
+    /// God, I love wikitext.
+    pub fn instantiate(
+        &mut self,
+        pwt_configuration: &parse_wiki_text_2::Configuration,
+        template: TemplateToInstantiate,
+        parameters: &[TemplateParameter],
+        sub_page_name: &str,
+    ) -> WikitextSimplifiedNode {
+        use WikitextSimplifiedNode as WSN;
+
+        let mut template = match template {
+            TemplateToInstantiate::Name(name) => {
+                if name.eq_ignore_ascii_case("subpagename") {
+                    return WSN::Text {
+                        text: sub_page_name.to_string(),
+                    };
+                }
+                self.get(name).unwrap().clone()
+            }
+            TemplateToInstantiate::Node(node) => node,
+        };
+
+        // Check if we're done
+        let mut further_instantiation_required = false;
+        template.visit(&mut |node| {
+            further_instantiation_required |= matches!(
+                node,
+                WSN::TemplateParameterUse { .. } | WSN::Template { .. }
+            );
+        });
+        if !further_instantiation_required {
+            return template;
+        }
+
+        // Instantiate all nested templates, and replace
+        template.visit_and_replace_mut(&mut |node| match node {
+            WSN::Template { name, parameters } => self.instantiate(
+                pwt_configuration,
+                TemplateToInstantiate::Name(name),
+                parameters,
+                sub_page_name,
+            ),
+            WSN::TemplateParameterUse { name, default } => {
+                let parameter = parameters
+                    .iter()
+                    .find(|p| p.name == *name)
+                    .map(|p| p.value.clone())
+                    .or_else(|| {
+                        name.eq_ignore_ascii_case("subpagename")
+                            .then(|| sub_page_name.to_string())
+                    });
+                if let Some(parameter) = parameter {
+                    WSN::Text { text: parameter }
+                } else if let Some(default) = default {
+                    WSN::Text {
+                        text: WSN::Fragment {
+                            children: default.clone(),
+                        }
+                        .to_wikitext(),
+                    }
+                } else {
+                    WSN::Text {
+                        text: "".to_string(),
+                    }
+                }
+            }
+            _ => node.clone(),
+        });
+
+        // Convert the template back to wikitext, then reparse it, and then send it through again
+        let template_wikitext = template.to_wikitext();
+        let template =
+            wikitext_simplified::parse_and_simplify_wikitext(&template_wikitext, pwt_configuration)
+                .unwrap_or_else(|e| {
+                    panic!("Failed to parse and simplify template {template_wikitext}: {e:?}")
+                });
+        self.instantiate(
+            pwt_configuration,
+            TemplateToInstantiate::Node(WikitextSimplifiedNode::Fragment { children: template }),
+            parameters,
+            sub_page_name,
+        )
+    }
 }
 
 pub enum TemplateToInstantiate<'a> {
     Name(&'a str),
     Node(WikitextSimplifiedNode),
-}
-
-/// Instantiate the template by replacing all template parameter uses with their values,
-/// instantiating nested templates, converting back to wikitext, and then doing this until
-/// no more template parameter uses or nested templates are found.
-///
-/// God, I love wikitext.
-pub fn instantiate_template(
-    templates: &mut Templates,
-    pwt_configuration: &parse_wiki_text_2::Configuration,
-    template: TemplateToInstantiate,
-    parameters: &[TemplateParameter],
-    sub_page_name: &str,
-) -> WikitextSimplifiedNode {
-    use WikitextSimplifiedNode as WSN;
-
-    let mut template = match template {
-        TemplateToInstantiate::Name(name) => {
-            if name.eq_ignore_ascii_case("subpagename") {
-                return WSN::Text {
-                    text: sub_page_name.to_string(),
-                };
-            }
-            templates.get(name).unwrap().clone()
-        }
-        TemplateToInstantiate::Node(node) => node,
-    };
-
-    // Check if we're done
-    let mut further_instantiation_required = false;
-    template.visit(&mut |node| {
-        further_instantiation_required |= matches!(
-            node,
-            WSN::TemplateParameterUse { .. } | WSN::Template { .. }
-        );
-    });
-    if !further_instantiation_required {
-        return template;
-    }
-
-    // Instantiate all nested templates, and replace
-    template.visit_and_replace_mut(&mut |node| match node {
-        WSN::Template { name, parameters } => instantiate_template(
-            templates,
-            pwt_configuration,
-            TemplateToInstantiate::Name(name),
-            parameters,
-            sub_page_name,
-        ),
-        WSN::TemplateParameterUse { name, default } => {
-            let parameter = parameters
-                .iter()
-                .find(|p| p.name == *name)
-                .map(|p| p.value.clone())
-                .or_else(|| {
-                    name.eq_ignore_ascii_case("subpagename")
-                        .then(|| sub_page_name.to_string())
-                });
-            if let Some(parameter) = parameter {
-                WSN::Text { text: parameter }
-            } else if let Some(default) = default {
-                WSN::Text {
-                    text: WSN::Fragment {
-                        children: default.clone(),
-                    }
-                    .to_wikitext(),
-                }
-            } else {
-                WSN::Text {
-                    text: "".to_string(),
-                }
-            }
-        }
-        _ => node.clone(),
-    });
-
-    // Convert the template back to wikitext, then reparse it, and then send it through again
-    let template_wikitext = template.to_wikitext();
-    let template =
-        wikitext_simplified::parse_and_simplify_wikitext(&template_wikitext, pwt_configuration)
-            .unwrap_or_else(|e| {
-                panic!("Failed to parse and simplify template {template_wikitext}: {e:?}")
-            });
-    instantiate_template(
-        templates,
-        pwt_configuration,
-        TemplateToInstantiate::Node(WikitextSimplifiedNode::Fragment { children: template }),
-        parameters,
-        sub_page_name,
-    )
 }
