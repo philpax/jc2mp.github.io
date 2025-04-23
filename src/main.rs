@@ -101,13 +101,23 @@ fn generate_wiki_folder(
                     .map(|s| s.to_string()),
             );
 
-            let document =
-                if let [WikitextSimplifiedNode::Redirect { target }] = simplified.as_slice() {
+            let title = output_html_rel
+                .with_extension("")
+                .to_str()
+                .map(|s| s.to_string())
+                .unwrap()
+                .replace("\\", "/")
+                .replace("_", " ");
+
+            let document = if let [WikitextSimplifiedNode::Redirect { target }] =
+                simplified.as_slice()
+            {
                     redirect(&page_title_to_route_path(target).url_path())
                 } else {
-                    layout(paxhtml::Element::from_iter(
-                        simplified.iter().map(convert_wikitext_to_html),
-                    ))
+                layout(
+                    &title,
+                    paxhtml::Element::from_iter(simplified.iter().map(convert_wikitext_to_html)),
+                )
                 };
 
             document.write_to_route(dst_root, route_path)?;
@@ -117,7 +127,7 @@ fn generate_wiki_folder(
     Ok(())
 }
 
-fn layout(inner: paxhtml::Element) -> paxhtml::Document {
+fn layout(title: &str, inner: paxhtml::Element) -> paxhtml::Document {
     paxhtml::Document::new([
         paxhtml::builder::doctype(["html".into()]),
         paxhtml::html! {
@@ -125,7 +135,7 @@ fn layout(inner: paxhtml::Element) -> paxhtml::Document {
             <head>
                 <meta charset="UTF-8" />
                 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-                <title>"JC2-MP Documentation"</title>
+                <title>{format!("JC2-MP Documentation - {title}")}</title>
                 <link href="/style/bootstrap.min.css" rel="stylesheet" />
             </head>
             <body>
@@ -145,6 +155,7 @@ fn layout(inner: paxhtml::Element) -> paxhtml::Document {
                     </div>
                 </nav>
                 <div class="container mt-4">
+                    <h1>{title}</h1>
                     {inner}
                 </div>
                 <script src="/js/bootstrap.bundle.min.js"></script>
