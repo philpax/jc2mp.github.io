@@ -254,11 +254,19 @@ fn convert_wikitext_to_html(
             name,
             attributes,
             children,
-        } => paxhtml::builder::tag(
-            name.to_string(),
-            parse_optional_attributes(attributes),
-            false,
-        )(convert_children(children)),
+        } => {
+            let attributes = parse_optional_attributes(attributes);
+            if name == "syntaxhighlight" {
+                if let [WSN::Text { text }] = children.as_slice() {
+                    html! { <pre {attributes}><code>{text.trim()}</code></pre> }
+                } else {
+                    html! { <pre {attributes}><code>{convert_children(children)}</code></pre> }
+                }
+            } else {
+                let children = convert_children(children);
+                paxhtml::builder::tag(name.to_string(), attributes, false)(children)
+            }
+        }
         WSN::Text { text } => paxhtml::Element::Raw {
             html: text.to_string(),
         },
