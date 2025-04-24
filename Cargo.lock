@@ -161,7 +161,7 @@ checksum = "86bd8d4e895da8537e5315b8254664e6b769c4ff3db18321b297a1e7004392e3"
 [[package]]
 name = "wikitext_simplified"
 version = "0.1.0"
-source = "git+https://github.com/philpax/wikitext_simplified.git#4636ccc24cda1fa9656e407554054134498fdcf8"
+source = "git+https://github.com/philpax/wikitext_simplified.git#b2446077590e01a2c9ce3b535f41d7d5bd674839"
 dependencies = [
  "parse-wiki-text-2",
  "serde",
@@ -171,7 +171,7 @@ dependencies = [
 [[package]]
 name = "wikitext_util"
 version = "0.1.0"
-source = "git+https://github.com/philpax/wikitext_simplified.git#4636ccc24cda1fa9656e407554054134498fdcf8"
+source = "git+https://github.com/philpax/wikitext_simplified.git#b2446077590e01a2c9ce3b535f41d7d5bd674839"
 dependencies = [
  "parse-wiki-text-2",
 ]

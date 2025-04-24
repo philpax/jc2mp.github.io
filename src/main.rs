@@ -340,6 +340,20 @@ fn convert_wikitext_to_html(
                 </ul>
             }
         }
+        WSN::DefinitionList { items } => {
+            use wikitext_simplified::DefinitionListItemType;
+            html! {
+                <dl>
+                    #{items.iter().map(|i| {
+                        let children = convert_children(&i.content);
+                        match i.type_ {
+                            DefinitionListItemType::Term => html! { <dt>{children}</dt> },
+                            DefinitionListItemType::Details => html! { <dd>{children}</dd> },
+                        }
+                    })}
+                </dl>
+            }
+        }
         WSN::Redirect { target } => html! {
             <a href={page_title_to_route_path(target).url_path()}>
                 "REDIRECT: "{target}
