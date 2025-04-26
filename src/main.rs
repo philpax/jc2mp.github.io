@@ -277,12 +277,16 @@ fn convert_wikitext_to_html(
             .unwrap_or_default()
     }
 
-    let convert_children =
-        |templates: &mut Templates, children: &[WikitextSimplifiedNode]| {
-            paxhtml::Element::from_iter(children.iter().map(|node| {
-                convert_wikitext_to_html(templates, pwt_configuration, node, page_context)
-            }))
-        };
+    let convert_children = |templates: &mut Templates, children: &[WikitextSimplifiedNode]| {
+        paxhtml::Element::from_iter(
+            children
+                .iter()
+                .skip_while(|node| matches!(node, WSN::ParagraphBreak | WSN::Newline))
+                .map(|node| {
+                    convert_wikitext_to_html(templates, pwt_configuration, node, page_context)
+                }),
+        )
+    };
 
     match node {
         WSN::Fragment { children } => convert_children(templates, children),
