@@ -6,6 +6,8 @@ use std::{
 
 use wikitext_simplified::{TemplateParameter, WikitextSimplifiedNode, parse_wiki_text_2};
 
+use crate::page_context::PageContext;
+
 pub struct Templates<'a> {
     pwt_configuration: &'a parse_wiki_text_2::Configuration,
     lookup: HashMap<String, PathBuf>,
@@ -90,7 +92,7 @@ impl<'a> Templates<'a> {
         pwt_configuration: &parse_wiki_text_2::Configuration,
         template: TemplateToInstantiate,
         parameters: &[TemplateParameter],
-        sub_page_name: &str,
+        page_context: &PageContext,
     ) -> WikitextSimplifiedNode {
         use WikitextSimplifiedNode as WSN;
 
@@ -98,7 +100,7 @@ impl<'a> Templates<'a> {
             TemplateToInstantiate::Name(name) => {
                 if name.eq_ignore_ascii_case("subpagename") {
                     return WSN::Text {
-                        text: sub_page_name.to_string(),
+                        text: page_context.sub_page_name.to_string(),
                     };
                 }
                 self.get(name).unwrap().clone()
@@ -124,7 +126,7 @@ impl<'a> Templates<'a> {
                 pwt_configuration,
                 TemplateToInstantiate::Name(name),
                 parameters,
-                sub_page_name,
+                page_context,
             ),
             WSN::TemplateParameterUse { name, default } => {
                 let parameter = parameters
@@ -133,7 +135,7 @@ impl<'a> Templates<'a> {
                     .map(|p| p.value.clone())
                     .or_else(|| {
                         name.eq_ignore_ascii_case("subpagename")
-                            .then(|| sub_page_name.to_string())
+                            .then(|| page_context.sub_page_name.to_string())
                     });
                 if let Some(parameter) = parameter {
                     WSN::Text { text: parameter }
@@ -155,20 +157,23 @@ impl<'a> Templates<'a> {
 
         // Convert the template back to wikitext, then reparse it, and then send it through again
         let template_wikitext = template.to_wikitext();
-        let template =
+        let roundtripped_template =
             wikitext_simplified::parse_and_simplify_wikitext(&template_wikitext, pwt_configuration)
                 .unwrap_or_else(|e| {
                     panic!("Failed to parse and simplify template {template_wikitext}: {e:?}")
                 });
         self.instantiate(
             pwt_configuration,
-            TemplateToInstantiate::Node(WikitextSimplifiedNode::Fragment { children: template }),
+            TemplateToInstantiate::Node(WikitextSimplifiedNode::Fragment {
+                children: roundtripped_template,
+            }),
             parameters,
-            sub_page_name,
+            page_context,
         )
     }
 }
 
+#[derive(Clone, Debug)]
 pub enum TemplateToInstantiate<'a> {
     Name(&'a str),
     Node(WikitextSimplifiedNode),
