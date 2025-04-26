@@ -78,35 +78,35 @@ fn generate_wiki_folder(
             )?;
             continue;
         }
-            let content = fs::read_to_string(&path)?;
-            let simplified =
+        let content = fs::read_to_string(&path)?;
+        let simplified =
             wikitext_simplified::parse_and_simplify_wikitext(&content, pwt_configuration).map_err(
                 |e| {
-                        anyhow::anyhow!(
-                            "Failed to parse and simplify wiki file {}: {e:?}",
-                            path.display()
-                        )
+                    anyhow::anyhow!(
+                        "Failed to parse and simplify wiki file {}: {e:?}",
+                        path.display()
+                    )
                 },
             )?;
 
-            let output_json = dst.join(path.with_extension("json").file_name().unwrap());
-            fs::write(&output_json, serde_json::to_string_pretty(&simplified)?)?;
+        let output_json = dst.join(path.with_extension("json").file_name().unwrap());
+        fs::write(&output_json, serde_json::to_string_pretty(&simplified)?)?;
 
-            let output_html = output_json.with_extension("html");
-            let output_html_rel = output_html.strip_prefix(dst_root).unwrap();
+        let output_html = output_json.with_extension("html");
+        let output_html_rel = output_html.strip_prefix(dst_root).unwrap();
 
-            let route_path = paxhtml::RoutePath::new(
-                output_html_rel.parent().iter().flat_map(|p| {
-                    p.components().filter_map(|comp| match comp {
-                        std::path::Component::Normal(name) => name.to_str(),
-                        _ => None,
-                    })
-                }),
-                output_html_rel
-                    .file_name()
-                    .and_then(|s| s.to_str())
-                    .map(|s| s.to_string()),
-            );
+        let route_path = paxhtml::RoutePath::new(
+            output_html_rel.parent().iter().flat_map(|p| {
+                p.components().filter_map(|comp| match comp {
+                    std::path::Component::Normal(name) => name.to_str(),
+                    _ => None,
+                })
+            }),
+            output_html_rel
+                .file_name()
+                .and_then(|s| s.to_str())
+                .map(|s| s.to_string()),
+        );
 
         let document = if let [WikitextSimplifiedNode::Redirect { target }] = simplified.as_slice()
         {
@@ -122,31 +122,59 @@ fn generate_wiki_folder(
             let page_context = PageContext {
                 input_path: path,
                 title: output_html_rel
-                .with_extension("")
-                .to_str()
-                .map(|s| s.to_string())
-                .unwrap()
-                .replace("\\", "/")
+                    .with_extension("")
+                    .to_str()
+                    .map(|s| s.to_string())
+                    .unwrap()
+                    .replace("\\", "/")
                     .replace("_", " "),
                 route_path: route_path.clone(),
                 sub_page_name,
             };
 
-                layout(
+            layout(
                 &page_context.title,
-                    paxhtml::Element::from_iter(simplified.iter().map(|node| {
+                paxhtml::Element::from_iter(simplified.iter().map(|node| {
                     convert_wikitext_to_html(templates, pwt_configuration, node, &page_context)
-                    })),
-                )
-            };
+                })),
+            )
+        };
 
-            document.write_to_route(dst_root, route_path)?;
+        document.write_to_route(dst_root, route_path)?;
     }
 
     Ok(())
 }
 
 fn layout(title: &str, inner: paxhtml::Element) -> paxhtml::Document {
+    let mut links = vec![(
+        "Home",
+        paxhtml::RoutePath::new(
+            std::iter::once(WIKI_DIRECTORY),
+            Some("Main_Page.html".to_string()),
+        ),
+    )];
+
+    if title != "Main Page" {
+        let mut components = vec![];
+        for component in title.split('/') {
+            let route_path = paxhtml::RoutePath::new(
+                std::iter::once(WIKI_DIRECTORY).chain(components.iter().copied()),
+                Some(format!("{}.html", component.replace(" ", "_"))),
+            );
+            links.push((component, route_path));
+            components.push(component);
+        }
+    }
+
+    let mut breadcrumbs = vec![];
+    for (idx, (component, route_path)) in links.into_iter().enumerate() {
+        if idx > 0 {
+            breadcrumbs.push(paxhtml::html! { " / " });
+        }
+        breadcrumbs.push(paxhtml::html! { <a href={route_path.url_path()}>{component}</a> });
+    }
+
     paxhtml::Document::new([
         paxhtml::builder::doctype(["html".into()]),
         paxhtml::html! {
@@ -174,7 +202,7 @@ fn layout(title: &str, inner: paxhtml::Element) -> paxhtml::Document {
                     </div>
                 </nav>
                 <div class="container mt-4">
-                    <h1>{title}</h1>
+                    <h1>#{breadcrumbs}</h1>
                     {inner}
                 </div>
                 <script src="/js/bootstrap.bundle.min.js"></script>
@@ -251,10 +279,10 @@ fn convert_wikitext_to_html(
 
     let convert_children =
         |templates: &mut Templates, children: &[WikitextSimplifiedNode]| {
-        paxhtml::Element::from_iter(children.iter().map(|node| {
+            paxhtml::Element::from_iter(children.iter().map(|node| {
                 convert_wikitext_to_html(templates, pwt_configuration, node, page_context)
-        }))
-    };
+            }))
+        };
 
     match node {
         WSN::Fragment { children } => convert_children(templates, children),
