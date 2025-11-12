@@ -4,5 +4,5 @@ output
 
 /target
 
-# Tailwind binary
-/tailwind
+# Tailwind binary (cross-platform)
+tailwind*

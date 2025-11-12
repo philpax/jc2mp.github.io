@@ -190,9 +190,9 @@ fn layout(title: &str, inner: paxhtml::Element) -> paxhtml::Document {
     let mut breadcrumbs = vec![];
     for (idx, (component, route_path)) in links.into_iter().enumerate() {
         if idx > 0 {
-            breadcrumbs.push(paxhtml::html! { " / " });
+            breadcrumbs.push(paxhtml::html! { <span class="text-gray-400">" / "</span> });
         }
-        breadcrumbs.push(paxhtml::html! { <a href={route_path.url_path()}>{component}</a> });
+        breadcrumbs.push(paxhtml::html! { <a class="text-blue-600 hover:text-blue-800 hover:underline" href={route_path.url_path()}>{component}</a> });
     }
 
     paxhtml::Document::new([
@@ -222,7 +222,9 @@ fn layout(title: &str, inner: paxhtml::Element) -> paxhtml::Document {
                 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div class="bg-white p-8 rounded-lg shadow-sm">
                         <h1 class="text-3xl font-bold border-b-2 border-gray-300 pb-2 mb-6">#{breadcrumbs}</h1>
-                        {inner}
+                        <div class="space-y-4">
+                            {inner}
+                        </div>
                     </div>
                 </div>
             </body>
@@ -337,20 +339,28 @@ fn convert_wikitext_to_html(
             html! { <>{tpu.to_wikitext()}</> }
         }
         WSN::Heading { level, children } => {
-            paxhtml::builder::tag(format!("h{level}"), None, false)(convert_children(
-                templates, children,
-            ))
+            let class = match level {
+                2 => "text-2xl font-bold mt-8 mb-4",
+                3 => "text-xl font-bold mt-6 mb-3",
+                4 => "text-lg font-semibold mt-4 mb-2",
+                _ => "font-semibold mt-4 mb-2",
+            };
+            paxhtml::builder::tag(
+                format!("h{level}"),
+                paxhtml::Attribute::parse_from_str(&format!("class=\"{}\"", class)).unwrap(),
+                false,
+            )(convert_children(templates, children))
         }
         WSN::Link { text, title } => {
             html! {
-                <a href={page_title_to_route_path(title).url_path()}>
+                <a class="text-blue-600 hover:text-blue-800 hover:underline" href={page_title_to_route_path(title).url_path()}>
                     {paxhtml::Element::Raw { html: text.to_string() }}
                 </a>
             }
         }
         WSN::ExtLink { link, text } => {
             html! {
-                <a href={link}>
+                <a class="text-blue-600 hover:text-blue-800 hover:underline" href={link}>
                     {paxhtml::Element::Raw { html: text.as_ref().unwrap_or(link).to_string() }}
                 </a>
             }
@@ -362,7 +372,7 @@ fn convert_wikitext_to_html(
             html! { <em>{convert_children(templates, children)}</em> }
         }
         WSN::Blockquote { children } => {
-            html! { <blockquote>{convert_children(templates, children)}</blockquote> }
+            html! { <blockquote class="border-l-4 border-gray-300 pl-4 py-2 my-4 italic text-gray-700">{convert_children(templates, children)}</blockquote> }
         }
         WSN::Superscript { children } => {
             html! { <sup>{convert_children(templates, children)}</sup> }
@@ -374,7 +384,7 @@ fn convert_wikitext_to_html(
             html! { <small>{convert_children(templates, children)}</small> }
         }
         WSN::Preformatted { children } => {
-            html! { <pre>{convert_children(templates, children)}</pre> }
+            html! { <pre class="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto my-4">{convert_children(templates, children)}</pre> }
         }
         WSN::Tag {
             name,
@@ -412,19 +422,19 @@ fn convert_wikitext_to_html(
                 if let Some(highlighter) = SYNTAX_HIGHLIGHTER.get() {
                     match highlighter.highlight_code(lang, code) {
                         Ok(highlighted) => {
-                            html! { <pre><code>{highlighted}</code></pre> }
+                            html! { <pre class="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto my-4"><code>{highlighted}</code></pre> }
                         }
                         Err(_) => {
                             // Fallback to plain text if highlighting fails
                             let parsed_attributes =
                                 paxhtml::Attribute::parse_from_str(attrs_str).unwrap();
-                            html! { <pre {parsed_attributes}><code>{code}</code></pre> }
+                            html! { <pre class="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto my-4" {parsed_attributes}><code>{code}</code></pre> }
                         }
                     }
                 } else {
                     // Fallback if highlighter not initialized
                     let parsed_attributes = paxhtml::Attribute::parse_from_str(attrs_str).unwrap();
-                    html! { <pre {parsed_attributes}><code>{code}</code></pre> }
+                    html! { <pre class="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto my-4" {parsed_attributes}><code>{code}</code></pre> }
                 }
             } else {
                 let parsed_attributes =
@@ -549,11 +559,11 @@ fn convert_wikitext_to_html(
         }
         WSN::OrderedList { items } => {
             html! {
-                <ol>
+                <ol class="list-decimal list-inside space-y-2 my-4">
                     #{items
                         .iter()
                         .map(|i| {
-                            html! { <li>{convert_children(templates, &i.content)}</li> }
+                            html! { <li class="ml-4">{convert_children(templates, &i.content)}</li> }
                         })
                     }
                 </ol>
@@ -561,11 +571,11 @@ fn convert_wikitext_to_html(
         }
         WSN::UnorderedList { items } => {
             html! {
-                <ul>
+                <ul class="list-disc list-inside space-y-2 my-4">
                     #{items
                         .iter()
                         .map(|i| {
-                            html! { <li>{convert_children(templates, &i.content)}</li> }
+                            html! { <li class="ml-4">{convert_children(templates, &i.content)}</li> }
                         })
                     }
                 </ul>
@@ -574,23 +584,23 @@ fn convert_wikitext_to_html(
         WSN::DefinitionList { items } => {
             use wikitext_simplified::DefinitionListItemType;
             html! {
-                <dl>
+                <dl class="my-4">
                     #{items.iter().map(|i| {
                         let children = convert_children(templates, &i.content);
                         match i.type_ {
-                            DefinitionListItemType::Term => html! { <dt>{children}</dt> },
-                            DefinitionListItemType::Details => html! { <dd>{children}</dd> },
+                            DefinitionListItemType::Term => html! { <dt class="font-semibold mt-2">{children}</dt> },
+                            DefinitionListItemType::Details => html! { <dd class="ml-6 text-gray-700">{children}</dd> },
                         }
                     })}
                 </dl>
             }
         }
         WSN::Redirect { target } => html! {
-            <a href={page_title_to_route_path(target).url_path()}>
+            <a class="text-blue-600 hover:text-blue-800 hover:underline" href={page_title_to_route_path(target).url_path()}>
                 "REDIRECT: "{target}
             </a>
         },
-        WSN::HorizontalDivider => html! { <hr /> },
+        WSN::HorizontalDivider => html! { <hr class="my-6 border-t-2 border-gray-300" /> },
         WSN::ParagraphBreak => html! { <br /> },
         WSN::Newline => html! { <br /> },
     }
@@ -616,14 +626,17 @@ fn redirect(to_url: &str) -> paxhtml::Document {
                     <title>"Redirecting..."</title>
                     <meta charset="utf-8" />
                     <meta httpEquiv="refresh" content={format!("0; url={to_url}")} />
+                    <link href="/style/tailwind.css" rel="stylesheet" />
                 </head>
-                <body>
-                    <p>"Redirecting..."</p>
-                    <p>
-                        <a href={to_url} title="Click here if you are not redirected">
-                            "Click here"
-                        </a>
-                    </p>
+                <body class="bg-gray-100 flex items-center justify-center min-h-screen">
+                    <div class="text-center">
+                        <p class="text-xl mb-4">"Redirecting..."</p>
+                        <p>
+                            <a class="text-blue-600 hover:text-blue-800 hover:underline" href={to_url} title="Click here if you are not redirected">
+                                "Click here if you are not redirected"
+                            </a>
+                        </p>
+                    </div>
                 </body>
             </html>
         },
