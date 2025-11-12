@@ -117,26 +117,27 @@ impl<'a> Templates<'a> {
                                 &cell_wikitext,
                                 pwt_configuration,
                             )
-                                && !parsed.is_empty() {
-                                    // After reparsing, we may have new templates to instantiate
-                                    let reparsed = WSN::Fragment { children: parsed };
-                                    let instantiated = self.instantiate(
-                                        pwt_configuration,
-                                        TemplateToInstantiate::Node(reparsed),
-                                        &[],
-                                        page_context,
-                                    );
+                            && !parsed.is_empty()
+                        {
+                            // After reparsing, we may have new templates to instantiate
+                            let reparsed = WSN::Fragment { children: parsed };
+                            let instantiated = self.instantiate(
+                                pwt_configuration,
+                                TemplateToInstantiate::Node(reparsed),
+                                &[],
+                                page_context,
+                            );
 
-                                    // Extract children from the result
-                                    match instantiated {
-                                        WSN::Fragment { children } => {
-                                            cell.content = children;
-                                        }
-                                        other => {
-                                            cell.content = vec![other];
-                                        }
-                                    }
+                            // Extract children from the result
+                            match instantiated {
+                                WSN::Fragment { children } => {
+                                    cell.content = children;
                                 }
+                                other => {
+                                    cell.content = vec![other];
+                                }
+                            }
+                        }
                     }
                 }
             }
