@@ -45,7 +45,8 @@ fn generate_wiki(src: &Path, dst: &Path) -> anyhow::Result<()> {
     fs::create_dir_all(dst)?;
 
     let pwt_configuration = wikitext_simplified::wikitext_util::wikipedia_pwt_configuration();
-    let mut templates = Templates::new(src, &pwt_configuration)?;
+    let loader = template::FileSystemLoader::new(src)?;
+    let mut templates = Templates::new(loader, &pwt_configuration)?;
 
     generate_wiki_folder(&mut templates, src, dst, dst, &pwt_configuration)?;
     redirect(&page_title_to_route_path("Main_Page").url_path())

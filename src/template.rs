@@ -1,66 +1,97 @@
-use std::{
-    collections::HashMap,
-    fs,
-    path::{Path, PathBuf},
-};
+use std::collections::HashMap;
 
 use wikitext_simplified::{TemplateParameter, WikitextSimplifiedNode, parse_wiki_text_2};
 
 use crate::page_context::PageContext;
 
-pub struct Templates<'a> {
-    pwt_configuration: &'a parse_wiki_text_2::Configuration,
-    lookup: HashMap<String, PathBuf>,
-    templates: HashMap<String, WikitextSimplifiedNode>,
+/// Trait for loading wikitext template files
+pub trait TemplateLoader {
+    fn load(&self, name: &str) -> anyhow::Result<String>;
+    fn list_all(&self) -> anyhow::Result<Vec<String>>;
 }
-impl<'a> Templates<'a> {
-    pub fn new(
-        src_root: &Path,
-        pwt_configuration: &'a parse_wiki_text_2::Configuration,
-    ) -> anyhow::Result<Self> {
+
+/// File system based template loader
+pub struct FileSystemLoader {
+    root: std::path::PathBuf,
+    lookup: HashMap<String, std::path::PathBuf>,
+}
+
+impl FileSystemLoader {
+    pub fn new(root: impl Into<std::path::PathBuf>) -> anyhow::Result<Self> {
+        let root = root.into();
         let mut lookup = HashMap::new();
-        let templates = HashMap::new();
 
         fn scan_dir(
-            src_root: &Path,
-            path: &Path,
-            lookup: &mut HashMap<String, PathBuf>,
+            root: &std::path::Path,
+            path: &std::path::Path,
+            lookup: &mut HashMap<String, std::path::PathBuf>,
         ) -> anyhow::Result<()> {
-            for entry in fs::read_dir(path)? {
+            for entry in std::fs::read_dir(path)? {
                 let entry = entry?;
-                let path = entry.path();
+                let entry_path = entry.path();
 
-                if path.is_dir() {
-                    scan_dir(src_root, &path, lookup)?;
-                } else if path.is_file() {
-                    let key = path
-                        .strip_prefix(src_root)?
+                if entry_path.is_dir() {
+                    scan_dir(root, &entry_path, lookup)?;
+                } else if entry_path.is_file() && entry_path.extension().map_or(false, |e| e == "wikitext") {
+                    let key = entry_path
+                        .strip_prefix(root)?
                         .with_extension("")
                         .as_os_str()
                         .to_string_lossy()
                         .to_lowercase()
                         .replace("\\", "/")
                         .replace(" ", "_");
-                    lookup.insert(key, path);
+                    lookup.insert(key, entry_path);
                 }
             }
-
             Ok(())
         }
 
-        scan_dir(src_root, src_root, &mut lookup)?;
+        scan_dir(&root, &root, &mut lookup)?;
 
+        Ok(Self { root, lookup })
+    }
+}
+
+impl TemplateLoader for FileSystemLoader {
+    fn load(&self, name: &str) -> anyhow::Result<String> {
+        let key = name.to_lowercase().replace(" ", "_");
+        let path = self
+            .lookup
+            .get(&key)
+            .ok_or_else(|| anyhow::anyhow!("Template not found: {} -> {}", name, key))?;
+        std::fs::read_to_string(path)
+            .map_err(|e| anyhow::anyhow!("Failed to load template {} from {}: {}", name, path.display(), e))
+    }
+
+    fn list_all(&self) -> anyhow::Result<Vec<String>> {
+        Ok(self.lookup.keys().cloned().collect())
+    }
+}
+
+pub struct Templates<'a> {
+    pwt_configuration: &'a parse_wiki_text_2::Configuration,
+    loader: Box<dyn TemplateLoader + 'a>,
+    templates: HashMap<String, WikitextSimplifiedNode>,
+}
+impl<'a> Templates<'a> {
+    pub fn new(
+        loader: impl TemplateLoader + 'a,
+        pwt_configuration: &'a parse_wiki_text_2::Configuration,
+    ) -> anyhow::Result<Self> {
         Ok(Self {
             pwt_configuration,
-            lookup,
-            templates,
+            loader: Box::new(loader),
+            templates: HashMap::new(),
         })
     }
 
     /// Reparse text content in table cells that contains wikitext markup
     fn reparse_table_cells(
+        &mut self,
         node: &mut WikitextSimplifiedNode,
         pwt_configuration: &parse_wiki_text_2::Configuration,
+        page_context: &PageContext,
     ) {
         use WikitextSimplifiedNode as WSN;
 
@@ -73,10 +104,11 @@ impl<'a> Templates<'a> {
                         }
                         .to_wikitext();
 
-                        // Check if cell content contains wikitext markup (recursively, as it might be nested in tags)
+                        // Check if cell content contains wikitext markup or templates
                         let has_markup = cell_wikitext.contains("[[")
                             || cell_wikitext.contains("'''")
-                            || cell_wikitext.contains("''");
+                            || cell_wikitext.contains("''")
+                            || cell_wikitext.contains("{{");
 
                         if has_markup {
                             if let Ok(parsed) =
@@ -86,7 +118,24 @@ impl<'a> Templates<'a> {
                                 )
                             {
                                 if !parsed.is_empty() {
-                                    cell.content = parsed;
+                                    // After reparsing, we may have new templates to instantiate
+                                    let reparsed = WSN::Fragment { children: parsed };
+                                    let instantiated = self.instantiate(
+                                        pwt_configuration,
+                                        TemplateToInstantiate::Node(reparsed),
+                                        &[],
+                                        page_context,
+                                    );
+
+                                    // Extract children from the result
+                                    match instantiated {
+                                        WSN::Fragment { children } => {
+                                            cell.content = children;
+                                        }
+                                        other => {
+                                            cell.content = vec![other];
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -95,7 +144,7 @@ impl<'a> Templates<'a> {
             }
             WSN::Fragment { children } => {
                 for child in children {
-                    Self::reparse_table_cells(child, pwt_configuration);
+                    self.reparse_table_cells(child, pwt_configuration, page_context);
                 }
             }
             _ => {}
@@ -104,25 +153,24 @@ impl<'a> Templates<'a> {
 
     fn get(&mut self, name: &str) -> anyhow::Result<&WikitextSimplifiedNode> {
         let key = name.to_lowercase().replace(" ", "_");
-        let path = self
-            .lookup
-            .get(&key)
-            .ok_or(anyhow::anyhow!("Template not found: {name} -> {key}"))?;
-        let content = fs::read_to_string(path)?;
-        let simplified =
-            wikitext_simplified::parse_and_simplify_wikitext(&content, self.pwt_configuration)
-                .map_err(|e| {
-                    anyhow::anyhow!(
-                        "Failed to parse and simplify wiki file {}: {e:?}",
-                        path.display()
-                    )
-                })?;
-        self.templates.insert(
-            key.to_string(),
-            WikitextSimplifiedNode::Fragment {
-                children: simplified,
-            },
-        );
+
+        if !self.templates.contains_key(&key) {
+            let content = self.loader.load(name)?;
+            let simplified =
+                wikitext_simplified::parse_and_simplify_wikitext(&content, self.pwt_configuration)
+                    .map_err(|e| {
+                        anyhow::anyhow!(
+                            "Failed to parse and simplify template {}: {e:?}",
+                            name
+                        )
+                    })?;
+            self.templates.insert(
+                key.clone(),
+                WikitextSimplifiedNode::Fragment {
+                    children: simplified,
+                },
+            );
+        }
 
         Ok(&self.templates[&key])
     }
@@ -242,7 +290,7 @@ impl<'a> Templates<'a> {
 
             // After template expansion, reparse text content in table cells to handle
             // wikitext markup (like [[links]]) that came from template parameter values
-            Self::reparse_table_cells(&mut template, pwt_configuration);
+            self.reparse_table_cells(&mut template, pwt_configuration, page_context);
 
             template
         } else {
@@ -278,7 +326,39 @@ pub enum TemplateToInstantiate<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
+    use std::collections::HashMap;
+
+    /// In-memory template loader for testing
+    struct MockLoader {
+        templates: HashMap<String, String>,
+    }
+
+    impl MockLoader {
+        fn new() -> Self {
+            Self {
+                templates: HashMap::new(),
+            }
+        }
+
+        fn add(&mut self, name: &str, content: &str) {
+            let key = name.to_lowercase().replace(" ", "_");
+            self.templates.insert(key, content.to_string());
+        }
+    }
+
+    impl TemplateLoader for MockLoader {
+        fn load(&self, name: &str) -> anyhow::Result<String> {
+            let key = name.to_lowercase().replace(" ", "_");
+            self.templates
+                .get(&key)
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("Template not found: {}", name))
+        }
+
+        fn list_all(&self) -> anyhow::Result<Vec<String>> {
+            Ok(self.templates.keys().cloned().collect())
+        }
+    }
 
     #[test]
     fn test_nested_table_template_instantiation() {
@@ -286,23 +366,14 @@ mod tests {
         // Regression test for the bug where multiple cells ended up on the same line after
         // wikitext roundtrip conversion, causing pipe characters to appear as literal text
 
-        let temp_dir = tempfile::tempdir().unwrap();
-        let wiki_path = temp_dir.path().join("wiki");
-        fs::create_dir(&wiki_path).unwrap();
-
-        // Create test templates
-        fs::create_dir(wiki_path.join("Lua")).unwrap();
+        let mut loader = MockLoader::new();
 
         // Create a simple cell attribute template
-        fs::write(
-            wiki_path.join("Lua").join("CellAlign.wikitext"),
-            r#"align="right""#,
-        )
-        .unwrap();
+        loader.add("lua/cellalign", r#"align="right""#);
 
         // Create a table template with nested template in cell attributes
-        fs::write(
-            wiki_path.join("Lua").join("TestTable.wikitext"),
+        loader.add(
+            "lua/testtable",
             r#"{| class="wikitable"
 !Returns
 !Prototype
@@ -313,14 +384,13 @@ mod tests {
 |{{Lua/CellAlign}} | TypeB
 |align="left" | FunctionB()
 |}"#,
-        )
-        .unwrap();
+        );
 
         let pwt_configuration = wikitext_simplified::wikitext_util::wikipedia_pwt_configuration();
-        let mut templates = Templates::new(&wiki_path, &pwt_configuration).unwrap();
+        let mut templates = Templates::new(loader, &pwt_configuration).unwrap();
 
         let page_context = PageContext {
-            input_path: wiki_path.join("Test.wikitext"),
+            input_path: std::path::PathBuf::from("Test.wikitext"),
             title: "Test".to_string(),
             route_path: paxhtml::RoutePath::new(std::iter::empty(), Some("test.html".to_string())),
             sub_page_name: "Test".to_string(),
@@ -402,22 +472,16 @@ mod tests {
         // Verify that non-table templates still use the wikitext roundtrip
         // This is important for templates that expand to wikitext markup like '''bold'''
 
-        let temp_dir = tempfile::tempdir().unwrap();
-        let wiki_path = temp_dir.path().join("wiki");
-        fs::create_dir(&wiki_path).unwrap();
+        let mut loader = MockLoader::new();
 
         // Create a template that expands to bold text
-        fs::write(
-            wiki_path.join("BoldText.wikitext"),
-            "'''important'''",
-        )
-        .unwrap();
+        loader.add("boldtext", "'''important'''");
 
         let pwt_configuration = wikitext_simplified::wikitext_util::wikipedia_pwt_configuration();
-        let mut templates = Templates::new(&wiki_path, &pwt_configuration).unwrap();
+        let mut templates = Templates::new(loader, &pwt_configuration).unwrap();
 
         let page_context = PageContext {
-            input_path: wiki_path.join("Test.wikitext"),
+            input_path: std::path::PathBuf::from("Test.wikitext"),
             title: "Test".to_string(),
             route_path: paxhtml::RoutePath::new(std::iter::empty(), Some("test.html".to_string())),
             sub_page_name: "Test".to_string(),
