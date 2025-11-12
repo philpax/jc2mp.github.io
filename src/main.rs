@@ -6,8 +6,8 @@ use wikitext_simplified::{WikitextSimplifiedNode, wikitext_util::parse_wiki_text
 mod page_context;
 use page_context::PageContext;
 
-mod template;
 mod syntax;
+mod template;
 
 const WIKI_DIRECTORY: &str = "wiki";
 
@@ -52,7 +52,7 @@ fn generate_wiki(src: &Path, dst: &Path) -> anyhow::Result<()> {
     let mut templates = Templates::new(loader, &pwt_configuration)?;
 
     // Initialize syntax highlighter
-    let highlighter = SYNTAX_HIGHLIGHTER.get_or_init(|| syntax::SyntaxHighlighter::default());
+    let highlighter = SYNTAX_HIGHLIGHTER.get_or_init(syntax::SyntaxHighlighter::default);
 
     // Generate syntax highlighting CSS
     let syntax_css = highlighter.theme_css();
@@ -394,17 +394,15 @@ fn convert_wikitext_to_html(
                 let attrs_str = attributes.as_deref().unwrap_or_default();
                 let lang = if attrs_str.contains("lang=") || attrs_str.contains("language=") {
                     // Simple extraction of lang attribute value
-                    attrs_str
-                        .split_whitespace()
-                        .find_map(|part| {
-                            if let Some(value) = part.strip_prefix("lang=") {
-                                Some(value.trim_matches('"').trim_matches('\''))
-                            } else if let Some(value) = part.strip_prefix("language=") {
-                                Some(value.trim_matches('"').trim_matches('\''))
-                            } else {
-                                None
-                            }
-                        })
+                    attrs_str.split_whitespace().find_map(|part| {
+                        if let Some(value) = part.strip_prefix("lang=") {
+                            Some(value.trim_matches('"').trim_matches('\''))
+                        } else if let Some(value) = part.strip_prefix("language=") {
+                            Some(value.trim_matches('"').trim_matches('\''))
+                        } else {
+                            None
+                        }
+                    })
                 } else {
                     None
                 };
@@ -414,8 +412,7 @@ fn convert_wikitext_to_html(
                     text.trim()
                 } else {
                     // If not simple text, fall back to plain rendering
-                    let parsed_attributes =
-                        paxhtml::Attribute::parse_from_str(attrs_str).unwrap();
+                    let parsed_attributes = paxhtml::Attribute::parse_from_str(attrs_str).unwrap();
                     return html! { <pre {parsed_attributes}><code>{convert_children(templates, children)}</code></pre> };
                 };
 
@@ -434,8 +431,7 @@ fn convert_wikitext_to_html(
                     }
                 } else {
                     // Fallback if highlighter not initialized
-                    let parsed_attributes =
-                        paxhtml::Attribute::parse_from_str(attrs_str).unwrap();
+                    let parsed_attributes = paxhtml::Attribute::parse_from_str(attrs_str).unwrap();
                     html! { <pre {parsed_attributes}><code>{code}</code></pre> }
                 }
             } else {

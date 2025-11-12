@@ -1,6 +1,6 @@
 use syntect::{
     highlighting::ThemeSet,
-    html::{css_for_theme_with_class_style, ClassStyle, ClassedHTMLGenerator},
+    html::{ClassStyle, ClassedHTMLGenerator, css_for_theme_with_class_style},
     parsing::{SyntaxReference, SyntaxSet},
     util::LinesWithEndings,
 };
