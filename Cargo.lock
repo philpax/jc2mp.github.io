@@ -143,6 +143,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "paxhtml",
+ "paxhtml_tailwind",
  "serde_json",
  "syntect",
  "wikitext_simplified",
@@ -218,7 +219,7 @@ source = "git+https://github.com/philpax/parse-wiki-text-2.git?branch=wasm-suppo
 [[package]]
 name = "paxhtml"
 version = "0.1.0"
-source = "git+https://github.com/philpax/paxhtml.git#8dc25198cb6b38b8f815eb8bc9046ff925c8c514"
+source = "git+https://github.com/philpax/paxhtml.git#26d0785acbb290ab96a70f7b39cef2ad7a18c388"
 dependencies = [
  "html-escape",
  "paxhtml_macro",
@@ -227,13 +228,18 @@ dependencies = [
 [[package]]
 name = "paxhtml_macro"
 version = "0.1.0"
-source = "git+https://github.com/philpax/paxhtml.git#8dc25198cb6b38b8f815eb8bc9046ff925c8c514"
+source = "git+https://github.com/philpax/paxhtml.git#26d0785acbb290ab96a70f7b39cef2ad7a18c388"
 dependencies = [
  "convert_case",
  "proc-macro2",
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "paxhtml_tailwind"
+version = "0.1.0"
+source = "git+https://github.com/philpax/paxhtml.git#26d0785acbb290ab96a70f7b39cef2ad7a18c388"
 
 [[package]]
 name = "pkg-config"

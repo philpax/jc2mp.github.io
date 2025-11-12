@@ -21,6 +21,13 @@ fn main() -> anyhow::Result<()> {
     // Copy the contents of the `static` folder into the output directory
     copy_files_recursively(Path::new("static"), output_dir)?;
 
+    // Initialize Tailwind and generate CSS
+    let tailwind =
+        paxhtml_tailwind::Tailwind::download(paxhtml_tailwind::RECOMMENDED_VERSION, true)?;
+    let tailwind_css = tailwind.generate_from_file(Path::new("src/tailwind.css"))?;
+    fs::create_dir_all(output_dir.join("style"))?;
+    fs::write(output_dir.join("style/tailwind.css"), tailwind_css)?;
+
     // Generate wiki
     generate_wiki(Path::new(WIKI_DIRECTORY), &output_dir.join(WIKI_DIRECTORY))?;
 
@@ -196,43 +203,28 @@ fn layout(title: &str, inner: paxhtml::Element) -> paxhtml::Document {
                 <meta charset="UTF-8" />
                 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
                 <title>{format!("JC2-MP Documentation - {title}")}</title>
-                <link href="/style/bootstrap.min.css" rel="stylesheet" />
+                <link href="/style/tailwind.css" rel="stylesheet" />
                 <link href="/style/syntax.css" rel="stylesheet" />
-                <style>
-                    "body { background-color: #f8f9fa; }
-                    .container { max-width: 1200px; }
-                    .content-wrapper { background-color: white; padding: 2rem; border-radius: 0.5rem; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075); }
-                    pre { background-color: #2b303b; padding: 1rem; border-radius: 0.375rem; overflow-x: auto; }
-                    pre code { color: #c0c5ce; }
-                    h1 { border-bottom: 2px solid #dee2e6; padding-bottom: 0.5rem; margin-bottom: 1.5rem; }
-                    h2 { margin-top: 2rem; margin-bottom: 1rem; }
-                    h3 { margin-top: 1.5rem; margin-bottom: 0.75rem; }
-                    .navbar-brand { font-weight: 600; }"
-                </style>
             </head>
-            <body>
-                <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
-                    <div class="container">
-                        <a class="navbar-brand" href="/wiki">"Just Cause 2: Multiplayer"</a>
-                        <button class="navbar-toggler" r#type="button" dataBsToggle="collapse" dataBsTarget="#navbarNav" ariaControls="navbarNav" ariaExpanded="false" ariaLabel="Toggle navigation">
-                            <span class="navbar-toggler-icon"></span>
-                        </button>
-                        <div class="collapse navbar-collapse" id="navbarNav">
-                            <ul class="navbar-nav ms-auto">
-                                <li class="nav-item">
-                                    <a class="nav-link" href="/">"Website"</a>
-                                </li>
-                            </ul>
+            <body class="bg-gray-100">
+                <nav class="bg-gray-900 text-white mb-4">
+                    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <div class="flex items-center justify-between h-16">
+                            <div class="flex items-center">
+                                <a class="text-xl font-semibold" href="/wiki">"Just Cause 2: Multiplayer"</a>
+                            </div>
+                            <div class="flex items-center">
+                                <a class="text-gray-300 hover:text-white px-3 py-2" href="/">"Website"</a>
+                            </div>
                         </div>
                     </div>
                 </nav>
-                <div class="container">
-                    <div class="content-wrapper">
-                        <h1>#{breadcrumbs}</h1>
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div class="bg-white p-8 rounded-lg shadow-sm">
+                        <h1 class="text-3xl font-bold border-b-2 border-gray-300 pb-2 mb-6">#{breadcrumbs}</h1>
                         {inner}
                     </div>
                 </div>
-                <script src="/js/bootstrap.bundle.min.js"></script>
             </body>
             </html>
         },
@@ -478,9 +470,10 @@ fn convert_wikitext_to_html(
             };
 
             if !has_class_attr {
-                // Add Bootstrap table classes
+                // Add Tailwind table classes
                 modified_attributes.push(WSN::Text {
-                    text: " class=\"table table-striped table-bordered table-hover\"".to_string(),
+                    text: " class=\"min-w-full divide-y divide-gray-200 border border-gray-300\""
+                        .to_string(),
                 });
             }
 
@@ -493,7 +486,7 @@ fn convert_wikitext_to_html(
             );
             html! {
                 <table {attributes}>
-                    <thead class="table-dark">
+                    <thead class="bg-gray-800 text-white">
                         <tr>
                             #{captions
                                 .iter()
@@ -506,7 +499,7 @@ fn convert_wikitext_to_html(
                                         &caption.attributes,
                                     );
                                     html! {
-                                        <th {attributes}>
+                                        <th class="px-4 py-2 text-left" {attributes}>
                                             {convert_children(templates, &caption.content)}
                                         </th>
                                     }
@@ -514,10 +507,11 @@ fn convert_wikitext_to_html(
                             }
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody class="divide-y divide-gray-200">
                         #{rows
                             .iter()
-                            .map(|row| {
+                            .enumerate()
+                            .map(|(idx, row)| {
                                 let attributes = parse_attributes_from_wsn(
                                     templates,
                                     pwt_configuration,
@@ -525,8 +519,9 @@ fn convert_wikitext_to_html(
                                     "row",
                                     &row.attributes,
                                 );
+                                let row_class = if idx % 2 == 0 { "bg-white" } else { "bg-gray-50" };
                                 html! {
-                                    <tr {attributes}>
+                                    <tr class={format!("{} hover:bg-gray-100", row_class)} {attributes}>
                                         #{row.cells
                                             .iter()
                                             .map(|cell| {
@@ -538,7 +533,7 @@ fn convert_wikitext_to_html(
                                                     &cell.attributes,
                                                 );
                                                 html! {
-                                                    <td {attributes}>
+                                                    <td class="px-4 py-2" {attributes}>
                                                         {convert_children(templates, &cell.content)}
                                                     </td>
                                                 }
