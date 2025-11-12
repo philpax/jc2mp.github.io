@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 use wikitext_simplified::{TemplateParameter, WikitextSimplifiedNode, parse_wiki_text_2};
 
@@ -11,18 +14,18 @@ pub trait TemplateLoader {
 
 /// File system based template loader
 pub struct FileSystemLoader {
-    lookup: HashMap<String, std::path::PathBuf>,
+    lookup: HashMap<String, PathBuf>,
 }
 
 impl FileSystemLoader {
-    pub fn new(root: impl Into<std::path::PathBuf>) -> anyhow::Result<Self> {
+    pub fn new(root: impl Into<PathBuf>) -> anyhow::Result<Self> {
         let root = root.into();
         let mut lookup = HashMap::new();
 
         fn scan_dir(
-            root: &std::path::Path,
-            path: &std::path::Path,
-            lookup: &mut HashMap<String, std::path::PathBuf>,
+            root: &Path,
+            path: &Path,
+            lookup: &mut HashMap<String, PathBuf>,
         ) -> anyhow::Result<()> {
             for entry in std::fs::read_dir(path)? {
                 let entry = entry?;
@@ -321,7 +324,6 @@ pub enum TemplateToInstantiate<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
 
     /// In-memory template loader for testing
     struct MockLoader {
@@ -381,7 +383,7 @@ mod tests {
         let mut templates = Templates::new(loader, &pwt_configuration).unwrap();
 
         let page_context = PageContext {
-            input_path: std::path::PathBuf::from("Test.wikitext"),
+            input_path: PathBuf::from("Test.wikitext"),
             title: "Test".to_string(),
             route_path: paxhtml::RoutePath::new(std::iter::empty(), Some("test.html".to_string())),
             sub_page_name: "Test".to_string(),
@@ -474,7 +476,7 @@ mod tests {
         let mut templates = Templates::new(loader, &pwt_configuration).unwrap();
 
         let page_context = PageContext {
-            input_path: std::path::PathBuf::from("Test.wikitext"),
+            input_path: PathBuf::from("Test.wikitext"),
             title: "Test".to_string(),
             route_path: paxhtml::RoutePath::new(std::iter::empty(), Some("test.html".to_string())),
             sub_page_name: "Test".to_string(),
