@@ -559,7 +559,7 @@ fn convert_wikitext_to_html(
         }
         WSN::OrderedList { items } => {
             html! {
-                <ol class="list-decimal list-inside space-y-2 my-4">
+                <ol class="list-decimal list-inside">
                     #{items
                         .iter()
                         .map(|i| {
@@ -571,7 +571,7 @@ fn convert_wikitext_to_html(
         }
         WSN::UnorderedList { items } => {
             html! {
-                <ul class="list-disc list-inside space-y-2 my-4">
+                <ul class="list-disc list-inside">
                     #{items
                         .iter()
                         .map(|i| {
@@ -584,7 +584,7 @@ fn convert_wikitext_to_html(
         WSN::DefinitionList { items } => {
             use wikitext_simplified::DefinitionListItemType;
             html! {
-                <dl class="my-4">
+                <dl>
                     #{items.iter().map(|i| {
                         let children = convert_children(templates, &i.content);
                         match i.type_ {
