@@ -10,4 +10,5 @@ wikitext_simplified = { git = "https://github.com/philpax/wikitext_simplified.gi
 # wikitext_simplified = { path = "../wikitext_simplified/wikitext_simplified" }
 paxhtml = { git = "https://github.com/philpax/paxhtml.git" }
 # paxhtml = { path = "../paxhtml/paxhtml" }
+paxhtml_tailwind = { git = "https://github.com/philpax/paxhtml.git" }
 syntect = "5.2"

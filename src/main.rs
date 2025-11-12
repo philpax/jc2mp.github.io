@@ -21,6 +21,13 @@ fn main() -> anyhow::Result<()> {
     // Copy the contents of the `static` folder into the output directory
     copy_files_recursively(Path::new("static"), output_dir)?;
 
+    // Initialize Tailwind and generate CSS
+    let tailwind =
+        paxhtml_tailwind::Tailwind::download(paxhtml_tailwind::RECOMMENDED_VERSION, true)?;
+    let tailwind_css = tailwind.generate_from_file(Path::new("src/tailwind.css"))?;
+    fs::create_dir_all(output_dir.join("style"))?;
+    fs::write(output_dir.join("style/tailwind.css"), tailwind_css)?;
+
     // Generate wiki
     generate_wiki(Path::new(WIKI_DIRECTORY), &output_dir.join(WIKI_DIRECTORY))?;
 
@@ -183,9 +190,9 @@ fn layout(title: &str, inner: paxhtml::Element) -> paxhtml::Document {
     let mut breadcrumbs = vec![];
     for (idx, (component, route_path)) in links.into_iter().enumerate() {
         if idx > 0 {
-            breadcrumbs.push(paxhtml::html! { " / " });
+            breadcrumbs.push(paxhtml::html! { <span class="text-gray-400">" / "</span> });
         }
-        breadcrumbs.push(paxhtml::html! { <a href={route_path.url_path()}>{component}</a> });
+        breadcrumbs.push(paxhtml::html! { <a class="text-blue-600 hover:text-blue-800 hover:underline" href={route_path.url_path()}>{component}</a> });
     }
 
     paxhtml::Document::new([
@@ -196,43 +203,30 @@ fn layout(title: &str, inner: paxhtml::Element) -> paxhtml::Document {
                 <meta charset="UTF-8" />
                 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
                 <title>{format!("JC2-MP Documentation - {title}")}</title>
-                <link href="/style/bootstrap.min.css" rel="stylesheet" />
+                <link href="/style/tailwind.css" rel="stylesheet" />
                 <link href="/style/syntax.css" rel="stylesheet" />
-                <style>
-                    "body { background-color: #f8f9fa; }
-                    .container { max-width: 1200px; }
-                    .content-wrapper { background-color: white; padding: 2rem; border-radius: 0.5rem; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075); }
-                    pre { background-color: #2b303b; padding: 1rem; border-radius: 0.375rem; overflow-x: auto; }
-                    pre code { color: #c0c5ce; }
-                    h1 { border-bottom: 2px solid #dee2e6; padding-bottom: 0.5rem; margin-bottom: 1.5rem; }
-                    h2 { margin-top: 2rem; margin-bottom: 1rem; }
-                    h3 { margin-top: 1.5rem; margin-bottom: 0.75rem; }
-                    .navbar-brand { font-weight: 600; }"
-                </style>
             </head>
-            <body>
-                <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
-                    <div class="container">
-                        <a class="navbar-brand" href="/wiki">"Just Cause 2: Multiplayer"</a>
-                        <button class="navbar-toggler" r#type="button" dataBsToggle="collapse" dataBsTarget="#navbarNav" ariaControls="navbarNav" ariaExpanded="false" ariaLabel="Toggle navigation">
-                            <span class="navbar-toggler-icon"></span>
-                        </button>
-                        <div class="collapse navbar-collapse" id="navbarNav">
-                            <ul class="navbar-nav ms-auto">
-                                <li class="nav-item">
-                                    <a class="nav-link" href="/">"Website"</a>
-                                </li>
-                            </ul>
+            <body class="bg-gray-100">
+                <nav class="bg-gray-900 text-white mb-4">
+                    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <div class="flex items-center justify-between h-16">
+                            <div class="flex items-center">
+                                <a class="text-xl font-semibold" href="/wiki">"Just Cause 2: Multiplayer"</a>
+                            </div>
+                            <div class="flex items-center">
+                                <a class="text-gray-300 hover:text-white px-3 py-2" href="/">"Website"</a>
+                            </div>
                         </div>
                     </div>
                 </nav>
-                <div class="container">
-                    <div class="content-wrapper">
-                        <h1>#{breadcrumbs}</h1>
-                        {inner}
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div class="bg-white p-8 rounded-lg shadow-sm">
+                        <h1 class="text-3xl font-bold border-b-2 border-gray-300 pb-2 mb-6">#{breadcrumbs}</h1>
+                        <div class="space-y-4">
+                            {inner}
+                        </div>
                     </div>
                 </div>
-                <script src="/js/bootstrap.bundle.min.js"></script>
             </body>
             </html>
         },
@@ -345,20 +339,28 @@ fn convert_wikitext_to_html(
             html! { <>{tpu.to_wikitext()}</> }
         }
         WSN::Heading { level, children } => {
-            paxhtml::builder::tag(format!("h{level}"), None, false)(convert_children(
-                templates, children,
-            ))
+            let class = match level {
+                2 => "text-2xl font-bold mt-8 mb-4",
+                3 => "text-xl font-bold mt-6 mb-3",
+                4 => "text-lg font-semibold mt-4 mb-2",
+                _ => "font-semibold mt-4 mb-2",
+            };
+            paxhtml::builder::tag(
+                format!("h{level}"),
+                paxhtml::Attribute::parse_from_str(&format!("class=\"{}\"", class)).unwrap(),
+                false,
+            )(convert_children(templates, children))
         }
         WSN::Link { text, title } => {
             html! {
-                <a href={page_title_to_route_path(title).url_path()}>
+                <a class="text-blue-600 hover:text-blue-800 hover:underline" href={page_title_to_route_path(title).url_path()}>
                     {paxhtml::Element::Raw { html: text.to_string() }}
                 </a>
             }
         }
         WSN::ExtLink { link, text } => {
             html! {
-                <a href={link}>
+                <a class="text-blue-600 hover:text-blue-800 hover:underline" href={link}>
                     {paxhtml::Element::Raw { html: text.as_ref().unwrap_or(link).to_string() }}
                 </a>
             }
@@ -370,7 +372,7 @@ fn convert_wikitext_to_html(
             html! { <em>{convert_children(templates, children)}</em> }
         }
         WSN::Blockquote { children } => {
-            html! { <blockquote>{convert_children(templates, children)}</blockquote> }
+            html! { <blockquote class="border-l-4 border-gray-300 pl-4 py-2 my-4 italic text-gray-700">{convert_children(templates, children)}</blockquote> }
         }
         WSN::Superscript { children } => {
             html! { <sup>{convert_children(templates, children)}</sup> }
@@ -382,7 +384,7 @@ fn convert_wikitext_to_html(
             html! { <small>{convert_children(templates, children)}</small> }
         }
         WSN::Preformatted { children } => {
-            html! { <pre>{convert_children(templates, children)}</pre> }
+            html! { <pre class="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto my-4">{convert_children(templates, children)}</pre> }
         }
         WSN::Tag {
             name,
@@ -420,19 +422,19 @@ fn convert_wikitext_to_html(
                 if let Some(highlighter) = SYNTAX_HIGHLIGHTER.get() {
                     match highlighter.highlight_code(lang, code) {
                         Ok(highlighted) => {
-                            html! { <pre><code>{highlighted}</code></pre> }
+                            html! { <pre class="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto my-4"><code>{highlighted}</code></pre> }
                         }
                         Err(_) => {
                             // Fallback to plain text if highlighting fails
                             let parsed_attributes =
                                 paxhtml::Attribute::parse_from_str(attrs_str).unwrap();
-                            html! { <pre {parsed_attributes}><code>{code}</code></pre> }
+                            html! { <pre class="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto my-4" {parsed_attributes}><code>{code}</code></pre> }
                         }
                     }
                 } else {
                     // Fallback if highlighter not initialized
                     let parsed_attributes = paxhtml::Attribute::parse_from_str(attrs_str).unwrap();
-                    html! { <pre {parsed_attributes}><code>{code}</code></pre> }
+                    html! { <pre class="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto my-4" {parsed_attributes}><code>{code}</code></pre> }
                 }
             } else {
                 let parsed_attributes =
@@ -478,9 +480,10 @@ fn convert_wikitext_to_html(
             };
 
             if !has_class_attr {
-                // Add Bootstrap table classes
+                // Add Tailwind table classes
                 modified_attributes.push(WSN::Text {
-                    text: " class=\"table table-striped table-bordered table-hover\"".to_string(),
+                    text: " class=\"min-w-full divide-y divide-gray-200 border border-gray-300\""
+                        .to_string(),
                 });
             }
 
@@ -493,7 +496,7 @@ fn convert_wikitext_to_html(
             );
             html! {
                 <table {attributes}>
-                    <thead class="table-dark">
+                    <thead class="bg-gray-800 text-white">
                         <tr>
                             #{captions
                                 .iter()
@@ -506,7 +509,7 @@ fn convert_wikitext_to_html(
                                         &caption.attributes,
                                     );
                                     html! {
-                                        <th {attributes}>
+                                        <th class="px-4 py-2 text-left" {attributes}>
                                             {convert_children(templates, &caption.content)}
                                         </th>
                                     }
@@ -514,10 +517,11 @@ fn convert_wikitext_to_html(
                             }
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody class="divide-y divide-gray-200">
                         #{rows
                             .iter()
-                            .map(|row| {
+                            .enumerate()
+                            .map(|(idx, row)| {
                                 let attributes = parse_attributes_from_wsn(
                                     templates,
                                     pwt_configuration,
@@ -525,8 +529,9 @@ fn convert_wikitext_to_html(
                                     "row",
                                     &row.attributes,
                                 );
+                                let row_class = if idx % 2 == 0 { "bg-white" } else { "bg-gray-50" };
                                 html! {
-                                    <tr {attributes}>
+                                    <tr class={format!("{} hover:bg-gray-100", row_class)} {attributes}>
                                         #{row.cells
                                             .iter()
                                             .map(|cell| {
@@ -538,7 +543,7 @@ fn convert_wikitext_to_html(
                                                     &cell.attributes,
                                                 );
                                                 html! {
-                                                    <td {attributes}>
+                                                    <td class="px-4 py-2" {attributes}>
                                                         {convert_children(templates, &cell.content)}
                                                     </td>
                                                 }
@@ -554,11 +559,11 @@ fn convert_wikitext_to_html(
         }
         WSN::OrderedList { items } => {
             html! {
-                <ol>
+                <ol class="list-decimal list-inside">
                     #{items
                         .iter()
                         .map(|i| {
-                            html! { <li>{convert_children(templates, &i.content)}</li> }
+                            html! { <li class="ml-4">{convert_children(templates, &i.content)}</li> }
                         })
                     }
                 </ol>
@@ -566,11 +571,11 @@ fn convert_wikitext_to_html(
         }
         WSN::UnorderedList { items } => {
             html! {
-                <ul>
+                <ul class="list-disc list-inside">
                     #{items
                         .iter()
                         .map(|i| {
-                            html! { <li>{convert_children(templates, &i.content)}</li> }
+                            html! { <li class="ml-4">{convert_children(templates, &i.content)}</li> }
                         })
                     }
                 </ul>
@@ -583,19 +588,19 @@ fn convert_wikitext_to_html(
                     #{items.iter().map(|i| {
                         let children = convert_children(templates, &i.content);
                         match i.type_ {
-                            DefinitionListItemType::Term => html! { <dt>{children}</dt> },
-                            DefinitionListItemType::Details => html! { <dd>{children}</dd> },
+                            DefinitionListItemType::Term => html! { <dt class="font-semibold mt-2">{children}</dt> },
+                            DefinitionListItemType::Details => html! { <dd class="ml-6 text-gray-700">{children}</dd> },
                         }
                     })}
                 </dl>
             }
         }
         WSN::Redirect { target } => html! {
-            <a href={page_title_to_route_path(target).url_path()}>
+            <a class="text-blue-600 hover:text-blue-800 hover:underline" href={page_title_to_route_path(target).url_path()}>
                 "REDIRECT: "{target}
             </a>
         },
-        WSN::HorizontalDivider => html! { <hr /> },
+        WSN::HorizontalDivider => html! { <hr class="my-6 border-t-2 border-gray-300" /> },
         WSN::ParagraphBreak => html! { <br /> },
         WSN::Newline => html! { <br /> },
     }
@@ -621,14 +626,17 @@ fn redirect(to_url: &str) -> paxhtml::Document {
                     <title>"Redirecting..."</title>
                     <meta charset="utf-8" />
                     <meta httpEquiv="refresh" content={format!("0; url={to_url}")} />
+                    <link href="/style/tailwind.css" rel="stylesheet" />
                 </head>
-                <body>
-                    <p>"Redirecting..."</p>
-                    <p>
-                        <a href={to_url} title="Click here if you are not redirected">
-                            "Click here"
-                        </a>
-                    </p>
+                <body class="bg-gray-100 flex items-center justify-center min-h-screen">
+                    <div class="text-center">
+                        <p class="text-xl mb-4">"Redirecting..."</p>
+                        <p>
+                            <a class="text-blue-600 hover:text-blue-800 hover:underline" href={to_url} title="Click here if you are not redirected">
+                                "Click here if you are not redirected"
+                            </a>
+                        </p>
+                    </div>
                 </body>
             </html>
         },
