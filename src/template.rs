@@ -7,12 +7,10 @@ use crate::page_context::PageContext;
 /// Trait for loading wikitext template files
 pub trait TemplateLoader {
     fn load(&self, name: &str) -> anyhow::Result<String>;
-    fn list_all(&self) -> anyhow::Result<Vec<String>>;
 }
 
 /// File system based template loader
 pub struct FileSystemLoader {
-    root: std::path::PathBuf,
     lookup: HashMap<String, std::path::PathBuf>,
 }
 
@@ -32,7 +30,9 @@ impl FileSystemLoader {
 
                 if entry_path.is_dir() {
                     scan_dir(root, &entry_path, lookup)?;
-                } else if entry_path.is_file() && entry_path.extension().map_or(false, |e| e == "wikitext") {
+                } else if entry_path.is_file()
+                    && entry_path.extension().is_some_and(|e| e == "wikitext")
+                {
                     let key = entry_path
                         .strip_prefix(root)?
                         .with_extension("")
@@ -49,7 +49,7 @@ impl FileSystemLoader {
 
         scan_dir(&root, &root, &mut lookup)?;
 
-        Ok(Self { root, lookup })
+        Ok(Self { lookup })
     }
 }
 
@@ -60,12 +60,14 @@ impl TemplateLoader for FileSystemLoader {
             .lookup
             .get(&key)
             .ok_or_else(|| anyhow::anyhow!("Template not found: {} -> {}", name, key))?;
-        std::fs::read_to_string(path)
-            .map_err(|e| anyhow::anyhow!("Failed to load template {} from {}: {}", name, path.display(), e))
-    }
-
-    fn list_all(&self) -> anyhow::Result<Vec<String>> {
-        Ok(self.lookup.keys().cloned().collect())
+        std::fs::read_to_string(path).map_err(|e| {
+            anyhow::anyhow!(
+                "Failed to load template {} from {}: {}",
+                name,
+                path.display(),
+                e
+            )
+        })
     }
 }
 
@@ -110,14 +112,12 @@ impl<'a> Templates<'a> {
                             || cell_wikitext.contains("''")
                             || cell_wikitext.contains("{{");
 
-                        if has_markup {
-                            if let Ok(parsed) =
-                                wikitext_simplified::parse_and_simplify_wikitext(
-                                    &cell_wikitext,
-                                    pwt_configuration,
-                                )
-                            {
-                                if !parsed.is_empty() {
+                        if has_markup
+                            && let Ok(parsed) = wikitext_simplified::parse_and_simplify_wikitext(
+                                &cell_wikitext,
+                                pwt_configuration,
+                            )
+                                && !parsed.is_empty() {
                                     // After reparsing, we may have new templates to instantiate
                                     let reparsed = WSN::Fragment { children: parsed };
                                     let instantiated = self.instantiate(
@@ -137,8 +137,6 @@ impl<'a> Templates<'a> {
                                         }
                                     }
                                 }
-                            }
-                        }
                     }
                 }
             }
@@ -159,10 +157,7 @@ impl<'a> Templates<'a> {
             let simplified =
                 wikitext_simplified::parse_and_simplify_wikitext(&content, self.pwt_configuration)
                     .map_err(|e| {
-                        anyhow::anyhow!(
-                            "Failed to parse and simplify template {}: {e:?}",
-                            name
-                        )
+                        anyhow::anyhow!("Failed to parse and simplify template {}: {e:?}", name)
                     })?;
             self.templates.insert(
                 key.clone(),
@@ -296,14 +291,13 @@ impl<'a> Templates<'a> {
         } else {
             // For non-table templates, roundtrip through wikitext (already did one replacement above)
             let template_wikitext = template.to_wikitext();
-            let roundtripped_template =
-                wikitext_simplified::parse_and_simplify_wikitext(
-                    &template_wikitext,
-                    pwt_configuration,
-                )
-                .unwrap_or_else(|e| {
-                    panic!("Failed to parse and simplify template {template_wikitext}: {e:?}")
-                });
+            let roundtripped_template = wikitext_simplified::parse_and_simplify_wikitext(
+                &template_wikitext,
+                pwt_configuration,
+            )
+            .unwrap_or_else(|e| {
+                panic!("Failed to parse and simplify template {template_wikitext}: {e:?}")
+            });
 
             self.instantiate(
                 pwt_configuration,
@@ -354,10 +348,6 @@ mod tests {
                 .cloned()
                 .ok_or_else(|| anyhow::anyhow!("Template not found: {}", name))
         }
-
-        fn list_all(&self) -> anyhow::Result<Vec<String>> {
-            Ok(self.templates.keys().cloned().collect())
-        }
     }
 
     #[test]
@@ -407,25 +397,27 @@ mod tests {
         // Verify the result is a table (possibly wrapped in a Fragment)
         let table_node = match &result {
             WikitextSimplifiedNode::Table { .. } => &result,
-            WikitextSimplifiedNode::Fragment { children } => {
-                children.iter()
-                    .find(|node| matches!(node, WikitextSimplifiedNode::Table { .. }))
-                    .expect("Fragment should contain a Table node")
-            }
-            _ => panic!("Expected Table or Fragment with Table node, got {:?}", result),
+            WikitextSimplifiedNode::Fragment { children } => children
+                .iter()
+                .find(|node| matches!(node, WikitextSimplifiedNode::Table { .. }))
+                .expect("Fragment should contain a Table node"),
+            _ => panic!(
+                "Expected Table or Fragment with Table node, got {:?}",
+                result
+            ),
         };
 
         match table_node {
             WikitextSimplifiedNode::Table { rows, .. } => {
                 // Should have 2 data rows (plus header row handled separately)
-                assert_eq!(rows.len(), 3, "Table should have 3 rows (1 header + 2 data)");
+                assert_eq!(
+                    rows.len(),
+                    3,
+                    "Table should have 3 rows (1 header + 2 data)"
+                );
 
                 // Check first data row has 2 cells
-                assert_eq!(
-                    rows[1].cells.len(),
-                    2,
-                    "First data row should have 2 cells"
-                );
+                assert_eq!(rows[1].cells.len(), 2, "First data row should have 2 cells");
 
                 // Verify the first cell has the correct attribute from the template
                 if let Some(attrs) = &rows[1].cells[0].attributes {
@@ -499,7 +491,9 @@ mod tests {
         match result {
             WikitextSimplifiedNode::Fragment { children } => {
                 assert!(
-                    children.iter().any(|node| matches!(node, WikitextSimplifiedNode::Bold { .. })),
+                    children
+                        .iter()
+                        .any(|node| matches!(node, WikitextSimplifiedNode::Bold { .. })),
                     "Template should be reparsed into Bold node through wikitext roundtrip"
                 );
             }
