@@ -10,3 +10,6 @@ wikitext_simplified = { git = "https://github.com/philpax/wikitext_simplified.gi
 # wikitext_simplified = { path = "../wikitext_simplified/wikitext_simplified" }
 paxhtml = { git = "https://github.com/philpax/paxhtml.git" }
 # paxhtml = { path = "../paxhtml/paxhtml" }
+
+[dev-dependencies]
+tempfile = "3"

@@ -120,56 +120,128 @@ impl<'a> Templates<'a> {
             return template;
         }
 
-        // Instantiate all nested templates, and replace
-        template.visit_and_replace_mut(&mut |node| match node {
-            WSN::Template { name, parameters } => self.instantiate(
-                pwt_configuration,
-                TemplateToInstantiate::Name(name),
-                parameters,
-                page_context,
-            ),
-            WSN::TemplateParameterUse { name, default } => {
-                let parameter = parameters
-                    .iter()
-                    .find(|p| p.name == *name)
-                    .map(|p| p.value.clone())
-                    .or_else(|| {
-                        name.eq_ignore_ascii_case("subpagename")
-                            .then(|| page_context.sub_page_name.to_string())
-                    });
-                if let Some(parameter) = parameter {
-                    WSN::Text { text: parameter }
-                } else if let Some(default) = default {
-                    WSN::Text {
-                        text: WSN::Fragment {
-                            children: default.clone(),
-                        }
-                        .to_wikitext(),
-                    }
-                } else {
-                    WSN::Text {
-                        text: "".to_string(),
-                    }
-                }
+        // Special handling for templates containing tables: don't do the wikitext roundtrip
+        // as it breaks table structure when multiple cells end up on the same line.
+        // Instead, recursively instantiate templates within the structure directly.
+        let mut contains_table = false;
+        template.visit(&mut |node| {
+            if matches!(node, WSN::Table { .. }) {
+                contains_table = true;
             }
-            _ => node.clone(),
         });
 
-        // Convert the template back to wikitext, then reparse it, and then send it through again
-        let template_wikitext = template.to_wikitext();
-        let roundtripped_template =
-            wikitext_simplified::parse_and_simplify_wikitext(&template_wikitext, pwt_configuration)
-                .unwrap_or_else(|e| {
-                    panic!("Failed to parse and simplify template {template_wikitext}: {e:?}")
+        if contains_table {
+            // For templates containing tables, recursively replace templates and parameters
+            // but don't do the wikitext roundtrip that breaks table cell structure
+            loop {
+                let mut changed = false;
+
+                template.visit_and_replace_mut(&mut |node| {
+                    match node {
+                        WSN::Template { name, parameters: template_params } => {
+                            changed = true;
+                            let result = self.instantiate(
+                                pwt_configuration,
+                                TemplateToInstantiate::Name(name),
+                                template_params,
+                                page_context,
+                            );
+                            // Flatten single-child fragments to avoid nested structures
+                            match result {
+                                WSN::Fragment { children } if children.len() == 1 => {
+                                    children.into_iter().next().unwrap()
+                                }
+                                _ => result,
+                            }
+                        }
+                        WSN::TemplateParameterUse { name, default } => {
+                            let parameter = parameters
+                                .iter()
+                                .find(|p| p.name == *name)
+                                .map(|p| p.value.clone())
+                                .or_else(|| {
+                                    name.eq_ignore_ascii_case("subpagename")
+                                        .then(|| page_context.sub_page_name.to_string())
+                                });
+                            if let Some(parameter) = parameter {
+                                changed = true;
+                                WSN::Text { text: parameter }
+                            } else if let Some(default) = default {
+                                changed = true;
+                                WSN::Text {
+                                    text: WSN::Fragment {
+                                        children: default.clone(),
+                                    }
+                                    .to_wikitext(),
+                                }
+                            } else {
+                                node.clone()
+                            }
+                        }
+                        _ => node.clone(),
+                    }
                 });
-        self.instantiate(
-            pwt_configuration,
-            TemplateToInstantiate::Node(WikitextSimplifiedNode::Fragment {
-                children: roundtripped_template,
-            }),
-            parameters,
-            page_context,
-        )
+
+                // If nothing changed, we're done
+                if !changed {
+                    break;
+                }
+            }
+
+            template
+        } else {
+            // For non-table nodes, use the original roundtrip approach
+            // Instantiate all nested templates, and replace
+            template.visit_and_replace_mut(&mut |node| match node {
+                WSN::Template { name, parameters } => self.instantiate(
+                    pwt_configuration,
+                    TemplateToInstantiate::Name(name),
+                    parameters,
+                    page_context,
+                ),
+                WSN::TemplateParameterUse { name, default } => {
+                    let parameter = parameters
+                        .iter()
+                        .find(|p| p.name == *name)
+                        .map(|p| p.value.clone())
+                        .or_else(|| {
+                            name.eq_ignore_ascii_case("subpagename")
+                                .then(|| page_context.sub_page_name.to_string())
+                        });
+                    if let Some(parameter) = parameter {
+                        WSN::Text { text: parameter }
+                    } else if let Some(default) = default {
+                        WSN::Text {
+                            text: WSN::Fragment {
+                                children: default.clone(),
+                            }
+                            .to_wikitext(),
+                        }
+                    } else {
+                        WSN::Text {
+                            text: "".to_string(),
+                        }
+                    }
+                }
+                _ => node.clone(),
+            });
+
+            // Convert the template back to wikitext, then reparse it, and then send it through again
+            let template_wikitext = template.to_wikitext();
+            let roundtripped_template =
+                wikitext_simplified::parse_and_simplify_wikitext(&template_wikitext, pwt_configuration)
+                    .unwrap_or_else(|e| {
+                        panic!("Failed to parse and simplify template {template_wikitext}: {e:?}")
+                    });
+            self.instantiate(
+                pwt_configuration,
+                TemplateToInstantiate::Node(WikitextSimplifiedNode::Fragment {
+                    children: roundtripped_template,
+                }),
+                parameters,
+                page_context,
+            )
+        }
     }
 }
 
@@ -177,4 +249,176 @@ impl<'a> Templates<'a> {
 pub enum TemplateToInstantiate<'a> {
     Name(&'a str),
     Node(WikitextSimplifiedNode),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn test_nested_table_template_instantiation() {
+        // This test verifies that nested template instantiation preserves table cell structure
+        // Regression test for the bug where multiple cells ended up on the same line after
+        // wikitext roundtrip conversion, causing pipe characters to appear as literal text
+
+        let temp_dir = tempfile::tempdir().unwrap();
+        let wiki_path = temp_dir.path().join("wiki");
+        fs::create_dir(&wiki_path).unwrap();
+
+        // Create test templates
+        fs::create_dir(wiki_path.join("Lua")).unwrap();
+
+        // Create a simple cell attribute template
+        fs::write(
+            wiki_path.join("Lua").join("CellAlign.wikitext"),
+            r#"align="right""#,
+        )
+        .unwrap();
+
+        // Create a table template with nested template in cell attributes
+        fs::write(
+            wiki_path.join("Lua").join("TestTable.wikitext"),
+            r#"{| class="wikitable"
+!Returns
+!Prototype
+|-
+|{{Lua/CellAlign}} | TypeA
+|align="left" | FunctionA()
+|-
+|{{Lua/CellAlign}} | TypeB
+|align="left" | FunctionB()
+|}"#,
+        )
+        .unwrap();
+
+        let pwt_configuration = wikitext_simplified::wikitext_util::wikipedia_pwt_configuration();
+        let mut templates = Templates::new(&wiki_path, &pwt_configuration).unwrap();
+
+        let page_context = PageContext {
+            input_path: wiki_path.join("Test.wikitext"),
+            title: "Test".to_string(),
+            route_path: paxhtml::RoutePath::new(std::iter::empty(), Some("test.html".to_string())),
+            sub_page_name: "Test".to_string(),
+        };
+
+        // Instantiate the table template
+        let result = templates.instantiate(
+            &pwt_configuration,
+            TemplateToInstantiate::Name("Lua/TestTable"),
+            &[],
+            &page_context,
+        );
+
+        // Verify the result is a table (possibly wrapped in a Fragment)
+        let table_node = match &result {
+            WikitextSimplifiedNode::Table { .. } => &result,
+            WikitextSimplifiedNode::Fragment { children } => {
+                children.iter()
+                    .find(|node| matches!(node, WikitextSimplifiedNode::Table { .. }))
+                    .expect("Fragment should contain a Table node")
+            }
+            _ => panic!("Expected Table or Fragment with Table node, got {:?}", result),
+        };
+
+        match table_node {
+            WikitextSimplifiedNode::Table { rows, .. } => {
+                // Should have 2 data rows (plus header row handled separately)
+                assert_eq!(rows.len(), 3, "Table should have 3 rows (1 header + 2 data)");
+
+                // Check first data row has 2 cells
+                assert_eq!(
+                    rows[1].cells.len(),
+                    2,
+                    "First data row should have 2 cells"
+                );
+
+                // Verify the first cell has the correct attribute from the template
+                if let Some(attrs) = &rows[1].cells[0].attributes {
+                    let attrs_node = WikitextSimplifiedNode::Fragment {
+                        children: attrs.clone(),
+                    };
+                    let attrs_text = attrs_node.to_wikitext();
+                    assert!(
+                        attrs_text.contains("right"),
+                        "First cell should have 'align=right' attribute from template expansion"
+                    );
+                }
+
+                // Verify the first cell content is just "TypeA", not merged with second cell
+                let cell_content = WikitextSimplifiedNode::Fragment {
+                    children: rows[1].cells[0].content.clone(),
+                }
+                .to_wikitext();
+                assert!(
+                    !cell_content.contains("FunctionA"),
+                    "First cell should not contain content from second cell"
+                );
+                assert!(
+                    cell_content.contains("TypeA"),
+                    "First cell should contain TypeA"
+                );
+
+                // Verify the second cell exists and has correct content
+                let cell2_content = WikitextSimplifiedNode::Fragment {
+                    children: rows[1].cells[1].content.clone(),
+                }
+                .to_wikitext();
+                assert!(
+                    cell2_content.contains("FunctionA"),
+                    "Second cell should contain FunctionA"
+                );
+            }
+            _ => panic!("Expected Table node, got {:?}", result),
+        }
+    }
+
+    #[test]
+    fn test_non_table_template_uses_roundtrip() {
+        // Verify that non-table templates still use the wikitext roundtrip
+        // This is important for templates that expand to wikitext markup like '''bold'''
+
+        let temp_dir = tempfile::tempdir().unwrap();
+        let wiki_path = temp_dir.path().join("wiki");
+        fs::create_dir(&wiki_path).unwrap();
+
+        // Create a template that expands to bold text
+        fs::write(
+            wiki_path.join("BoldText.wikitext"),
+            "'''important'''",
+        )
+        .unwrap();
+
+        let pwt_configuration = wikitext_simplified::wikitext_util::wikipedia_pwt_configuration();
+        let mut templates = Templates::new(&wiki_path, &pwt_configuration).unwrap();
+
+        let page_context = PageContext {
+            input_path: wiki_path.join("Test.wikitext"),
+            title: "Test".to_string(),
+            route_path: paxhtml::RoutePath::new(std::iter::empty(), Some("test.html".to_string())),
+            sub_page_name: "Test".to_string(),
+        };
+
+        // Instantiate the template
+        let result = templates.instantiate(
+            &pwt_configuration,
+            TemplateToInstantiate::Name("BoldText"),
+            &[],
+            &page_context,
+        );
+
+        // The result should be a Fragment containing a Bold node (due to roundtrip parsing)
+        match result {
+            WikitextSimplifiedNode::Fragment { children } => {
+                assert!(
+                    children.iter().any(|node| matches!(node, WikitextSimplifiedNode::Bold { .. })),
+                    "Template should be reparsed into Bold node through wikitext roundtrip"
+                );
+            }
+            WikitextSimplifiedNode::Bold { .. } => {
+                // Direct Bold node is also acceptable
+            }
+            _ => panic!("Expected Bold or Fragment with Bold node, got {:?}", result),
+        }
+    }
 }
