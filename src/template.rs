@@ -120,85 +120,27 @@ impl<'a> Templates<'a> {
             return template;
         }
 
-        // Special handling for templates containing tables: don't do the wikitext roundtrip
-        // as it breaks table structure when multiple cells end up on the same line.
-        // Instead, recursively instantiate templates within the structure directly.
-        let mut contains_table = false;
-        template.visit(&mut |node| {
-            if matches!(node, WSN::Table { .. }) {
-                contains_table = true;
-            }
-        });
-
-        if contains_table {
-            // For templates containing tables, recursively replace templates and parameters
-            // but don't do the wikitext roundtrip that breaks table cell structure
-            loop {
-                let mut changed = false;
-
-                template.visit_and_replace_mut(&mut |node| {
-                    match node {
-                        WSN::Template { name, parameters: template_params } => {
-                            changed = true;
-                            let result = self.instantiate(
-                                pwt_configuration,
-                                TemplateToInstantiate::Name(name),
-                                template_params,
-                                page_context,
-                            );
-                            // Flatten single-child fragments to avoid nested structures
-                            match result {
-                                WSN::Fragment { children } if children.len() == 1 => {
-                                    children.into_iter().next().unwrap()
-                                }
-                                _ => result,
-                            }
-                        }
-                        WSN::TemplateParameterUse { name, default } => {
-                            let parameter = parameters
-                                .iter()
-                                .find(|p| p.name == *name)
-                                .map(|p| p.value.clone())
-                                .or_else(|| {
-                                    name.eq_ignore_ascii_case("subpagename")
-                                        .then(|| page_context.sub_page_name.to_string())
-                                });
-                            if let Some(parameter) = parameter {
-                                changed = true;
-                                WSN::Text { text: parameter }
-                            } else if let Some(default) = default {
-                                changed = true;
-                                WSN::Text {
-                                    text: WSN::Fragment {
-                                        children: default.clone(),
-                                    }
-                                    .to_wikitext(),
-                                }
-                            } else {
-                                node.clone()
-                            }
-                        }
-                        _ => node.clone(),
-                    }
-                });
-
-                // If nothing changed, we're done
-                if !changed {
-                    break;
-                }
-            }
-
-            template
-        } else {
-            // For non-table nodes, use the original roundtrip approach
-            // Instantiate all nested templates, and replace
+        // Helper to replace templates and parameters in the AST
+        let mut replace_once = |template: &mut WikitextSimplifiedNode| {
             template.visit_and_replace_mut(&mut |node| match node {
-                WSN::Template { name, parameters } => self.instantiate(
-                    pwt_configuration,
-                    TemplateToInstantiate::Name(name),
-                    parameters,
-                    page_context,
-                ),
+                WSN::Template {
+                    name,
+                    parameters: template_params,
+                } => {
+                    let result = self.instantiate(
+                        pwt_configuration,
+                        TemplateToInstantiate::Name(name),
+                        template_params,
+                        page_context,
+                    );
+                    // Flatten single-child fragments to avoid nested structures
+                    match result {
+                        WSN::Fragment { children } if children.len() == 1 => {
+                            children.into_iter().next().unwrap()
+                        }
+                        _ => result,
+                    }
+                }
                 WSN::TemplateParameterUse { name, default } => {
                     let parameter = parameters
                         .iter()
@@ -225,14 +167,46 @@ impl<'a> Templates<'a> {
                 }
                 _ => node.clone(),
             });
+        };
 
-            // Convert the template back to wikitext, then reparse it, and then send it through again
+        // Special handling for templates containing tables: don't do the wikitext roundtrip
+        // as it breaks table structure when multiple cells end up on the same line.
+        let contains_table = {
+            let mut found = false;
+            template.visit(&mut |node| {
+                if matches!(node, WSN::Table { .. }) {
+                    found = true;
+                }
+            });
+            found
+        };
+
+        if contains_table {
+            // For templates containing tables, recursively replace until no more changes
+            loop {
+                let before = template.to_wikitext();
+                replace_once(&mut template);
+                let after = template.to_wikitext();
+
+                if before == after {
+                    break;
+                }
+            }
+            template
+        } else {
+            // For non-table templates, do one replacement pass then roundtrip through wikitext
+            replace_once(&mut template);
+
             let template_wikitext = template.to_wikitext();
             let roundtripped_template =
-                wikitext_simplified::parse_and_simplify_wikitext(&template_wikitext, pwt_configuration)
-                    .unwrap_or_else(|e| {
-                        panic!("Failed to parse and simplify template {template_wikitext}: {e:?}")
-                    });
+                wikitext_simplified::parse_and_simplify_wikitext(
+                    &template_wikitext,
+                    pwt_configuration,
+                )
+                .unwrap_or_else(|e| {
+                    panic!("Failed to parse and simplify template {template_wikitext}: {e:?}")
+                });
+
             self.instantiate(
                 pwt_configuration,
                 TemplateToInstantiate::Node(WikitextSimplifiedNode::Fragment {
