@@ -1,4 +1,4 @@
-use std::{fs, path::Path};
+use std::{fs, path::Path, sync::OnceLock};
 
 use template::{TemplateToInstantiate, Templates};
 use wikitext_simplified::{WikitextSimplifiedNode, wikitext_util::parse_wiki_text_2};
@@ -6,9 +6,12 @@ use wikitext_simplified::{WikitextSimplifiedNode, wikitext_util::parse_wiki_text
 mod page_context;
 use page_context::PageContext;
 
+mod syntax;
 mod template;
 
 const WIKI_DIRECTORY: &str = "wiki";
+
+static SYNTAX_HIGHLIGHTER: OnceLock<syntax::SyntaxHighlighter> = OnceLock::new();
 
 fn main() -> anyhow::Result<()> {
     let output_dir = Path::new("output");
@@ -47,6 +50,15 @@ fn generate_wiki(src: &Path, dst: &Path) -> anyhow::Result<()> {
     let pwt_configuration = wikitext_simplified::wikitext_util::wikipedia_pwt_configuration();
     let loader = template::FileSystemLoader::new(src)?;
     let mut templates = Templates::new(loader, &pwt_configuration)?;
+
+    // Initialize syntax highlighter
+    let highlighter = SYNTAX_HIGHLIGHTER.get_or_init(syntax::SyntaxHighlighter::default);
+
+    // Generate syntax highlighting CSS
+    let syntax_css = highlighter.theme_css();
+    let output_dir = dst.parent().unwrap();
+    fs::create_dir_all(output_dir.join("style"))?;
+    fs::write(output_dir.join("style/syntax.css"), syntax_css)?;
 
     generate_wiki_folder(&mut templates, src, dst, dst, &pwt_configuration)?;
     redirect(&page_title_to_route_path("Main_Page").url_path())
@@ -185,9 +197,21 @@ fn layout(title: &str, inner: paxhtml::Element) -> paxhtml::Document {
                 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
                 <title>{format!("JC2-MP Documentation - {title}")}</title>
                 <link href="/style/bootstrap.min.css" rel="stylesheet" />
+                <link href="/style/syntax.css" rel="stylesheet" />
+                <style>
+                    "body { background-color: #f8f9fa; }
+                    .container { max-width: 1200px; }
+                    .content-wrapper { background-color: white; padding: 2rem; border-radius: 0.5rem; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075); }
+                    pre { background-color: #2b303b; padding: 1rem; border-radius: 0.375rem; overflow-x: auto; }
+                    pre code { color: #c0c5ce; }
+                    h1 { border-bottom: 2px solid #dee2e6; padding-bottom: 0.5rem; margin-bottom: 1.5rem; }
+                    h2 { margin-top: 2rem; margin-bottom: 1rem; }
+                    h3 { margin-top: 1.5rem; margin-bottom: 0.75rem; }
+                    .navbar-brand { font-weight: 600; }"
+                </style>
             </head>
             <body>
-                <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+                <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
                     <div class="container">
                         <a class="navbar-brand" href="/wiki">"Just Cause 2: Multiplayer"</a>
                         <button class="navbar-toggler" r#type="button" dataBsToggle="collapse" dataBsTarget="#navbarNav" ariaControls="navbarNav" ariaExpanded="false" ariaLabel="Toggle navigation">
@@ -202,9 +226,11 @@ fn layout(title: &str, inner: paxhtml::Element) -> paxhtml::Document {
                         </div>
                     </div>
                 </nav>
-                <div class="container mt-4">
-                    <h1>#{breadcrumbs}</h1>
-                    {inner}
+                <div class="container">
+                    <div class="content-wrapper">
+                        <h1>#{breadcrumbs}</h1>
+                        {inner}
+                    </div>
                 </div>
                 <script src="/js/bootstrap.bundle.min.js"></script>
             </body>
@@ -249,12 +275,27 @@ fn convert_wikitext_to_html(
                 "Table {attributes_context} attributes was not a fragment after instantiation; got {attributes:?} in {page_context}"
             );
         };
-        let [WSN::Text { text: attributes }] = attributes.as_slice() else {
+
+        // Merge all text nodes into a single string
+        let merged_text = attributes
+            .iter()
+            .filter_map(|node| {
+                if let WSN::Text { text } = node {
+                    Some(text.as_str())
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("");
+
+        if merged_text.is_empty() && !attributes.is_empty() {
             panic!(
-                "Table {attributes_context} attributes must be a string; got {attributes:?} in {page_context}"
+                "Table {attributes_context} attributes must contain text; got {attributes:?} in {page_context}"
             );
-        };
-        paxhtml::Attribute::parse_from_str(attributes).unwrap()
+        }
+
+        paxhtml::Attribute::parse_from_str(&merged_text).unwrap()
     }
 
     fn parse_optional_attributes_from_wsn(
@@ -348,18 +389,57 @@ fn convert_wikitext_to_html(
             attributes,
             children,
         } => {
-            let attributes =
-                paxhtml::Attribute::parse_from_str(attributes.as_deref().unwrap_or_default())
-                    .unwrap();
             if name == "syntaxhighlight" {
-                if let [WSN::Text { text }] = children.as_slice() {
-                    html! { <pre {attributes}><code>{text.trim()}</code></pre> }
+                // Extract language from attributes string before parsing, defaulting to Lua
+                let attrs_str = attributes.as_deref().unwrap_or_default();
+                let lang = if attrs_str.contains("lang=") || attrs_str.contains("language=") {
+                    // Simple extraction of lang attribute value
+                    attrs_str.split_whitespace().find_map(|part| {
+                        if let Some(value) = part.strip_prefix("lang=") {
+                            Some(value.trim_matches('"').trim_matches('\''))
+                        } else if let Some(value) = part.strip_prefix("language=") {
+                            Some(value.trim_matches('"').trim_matches('\''))
+                        } else {
+                            None
+                        }
+                    })
                 } else {
-                    html! { <pre {attributes}><code>{convert_children(templates, children)}</code></pre> }
+                    None
+                };
+
+                // Get the code text
+                let code = if let [WSN::Text { text }] = children.as_slice() {
+                    text.trim()
+                } else {
+                    // If not simple text, fall back to plain rendering
+                    let parsed_attributes = paxhtml::Attribute::parse_from_str(attrs_str).unwrap();
+                    return html! { <pre {parsed_attributes}><code>{convert_children(templates, children)}</code></pre> };
+                };
+
+                // Use syntax highlighter
+                if let Some(highlighter) = SYNTAX_HIGHLIGHTER.get() {
+                    match highlighter.highlight_code(lang, code) {
+                        Ok(highlighted) => {
+                            html! { <pre><code>{highlighted}</code></pre> }
+                        }
+                        Err(_) => {
+                            // Fallback to plain text if highlighting fails
+                            let parsed_attributes =
+                                paxhtml::Attribute::parse_from_str(attrs_str).unwrap();
+                            html! { <pre {parsed_attributes}><code>{code}</code></pre> }
+                        }
+                    }
+                } else {
+                    // Fallback if highlighter not initialized
+                    let parsed_attributes = paxhtml::Attribute::parse_from_str(attrs_str).unwrap();
+                    html! { <pre {parsed_attributes}><code>{code}</code></pre> }
                 }
             } else {
+                let parsed_attributes =
+                    paxhtml::Attribute::parse_from_str(attributes.as_deref().unwrap_or_default())
+                        .unwrap();
                 let children = convert_children(templates, children);
-                paxhtml::builder::tag(name.to_string(), attributes, false)(children)
+                paxhtml::builder::tag(name.to_string(), parsed_attributes, false)(children)
             }
         }
         WSN::Text { text } => paxhtml::Element::Raw {
@@ -370,16 +450,50 @@ fn convert_wikitext_to_html(
             captions,
             rows,
         } => {
+            // Add Bootstrap classes to table attributes
+            let mut modified_attributes = attributes.clone();
+
+            // Add Bootstrap table classes if not already present
+            let has_class_attr = if !attributes.is_empty() {
+                // Check if there's already a class attribute by instantiating and checking text
+                let instantiated = templates.instantiate(
+                    pwt_configuration,
+                    TemplateToInstantiate::Node(WikitextSimplifiedNode::Fragment {
+                        children: attributes.to_vec(),
+                    }),
+                    &[],
+                    page_context,
+                );
+                if let WSN::Fragment { children } = instantiated {
+                    if let Some(WSN::Text { text }) = children.first() {
+                        text.contains("class=")
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
+
+            if !has_class_attr {
+                // Add Bootstrap table classes
+                modified_attributes.push(WSN::Text {
+                    text: " class=\"table table-striped table-bordered table-hover\"".to_string(),
+                });
+            }
+
             let attributes = parse_attributes_from_wsn(
                 templates,
                 pwt_configuration,
                 page_context,
                 "main",
-                attributes,
+                &modified_attributes,
             );
             html! {
                 <table {attributes}>
-                    <thead>
+                    <thead class="table-dark">
                         <tr>
                             #{captions
                                 .iter()
