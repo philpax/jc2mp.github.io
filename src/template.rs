@@ -57,6 +57,51 @@ impl<'a> Templates<'a> {
         })
     }
 
+    /// Reparse text content in table cells that contains wikitext markup
+    fn reparse_table_cells(
+        node: &mut WikitextSimplifiedNode,
+        pwt_configuration: &parse_wiki_text_2::Configuration,
+    ) {
+        use WikitextSimplifiedNode as WSN;
+
+        match node {
+            WSN::Table { rows, .. } => {
+                for row in rows {
+                    for cell in &mut row.cells {
+                        let cell_wikitext = WSN::Fragment {
+                            children: cell.content.clone(),
+                        }
+                        .to_wikitext();
+
+                        // Check if cell content contains wikitext markup (recursively, as it might be nested in tags)
+                        let has_markup = cell_wikitext.contains("[[")
+                            || cell_wikitext.contains("'''")
+                            || cell_wikitext.contains("''");
+
+                        if has_markup {
+                            if let Ok(parsed) =
+                                wikitext_simplified::parse_and_simplify_wikitext(
+                                    &cell_wikitext,
+                                    pwt_configuration,
+                                )
+                            {
+                                if !parsed.is_empty() {
+                                    cell.content = parsed;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            WSN::Fragment { children } => {
+                for child in children {
+                    Self::reparse_table_cells(child, pwt_configuration);
+                }
+            }
+            _ => {}
+        }
+    }
+
     fn get(&mut self, name: &str) -> anyhow::Result<&WikitextSimplifiedNode> {
         let key = name.to_lowercase().replace(" ", "_");
         let path = self
@@ -169,8 +214,10 @@ impl<'a> Templates<'a> {
             });
         };
 
-        // Special handling for templates containing tables: don't do the wikitext roundtrip
-        // as it breaks table structure when multiple cells end up on the same line.
+        // Do one round of replacement first
+        replace_once(&mut template);
+
+        // NOW check if we have tables - this catches tables that were created by template expansion
         let contains_table = {
             let mut found = false;
             template.visit(&mut |node| {
@@ -192,11 +239,14 @@ impl<'a> Templates<'a> {
                     break;
                 }
             }
+
+            // After template expansion, reparse text content in table cells to handle
+            // wikitext markup (like [[links]]) that came from template parameter values
+            Self::reparse_table_cells(&mut template, pwt_configuration);
+
             template
         } else {
-            // For non-table templates, do one replacement pass then roundtrip through wikitext
-            replace_once(&mut template);
-
+            // For non-table templates, roundtrip through wikitext (already did one replacement above)
             let template_wikitext = template.to_wikitext();
             let roundtripped_template =
                 wikitext_simplified::parse_and_simplify_wikitext(
