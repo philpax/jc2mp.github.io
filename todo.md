@@ -1,5 +1,3 @@
-- Breadcrumb title links
-- Broken tables: `wiki/Lua/Client/ClientStaticObject.html` and `wiki/Lua/Client/ClientEntity.html`
 - Need a way to serve output directly
 - Need a way to regenerate pages on edit, including everything downstream
 - Run conversions in parallel, maybe... I suspect running in release is sufficient
