@@ -1,1 +1,0 @@
-* [[Lua/Shared/SHA1/Static_Functions/ComputeHash|ComputeHash]]

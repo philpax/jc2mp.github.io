@@ -1,4 +1,0 @@
-* [[Lua/Client/Window/Functions/DestroyModal|DestroyModal]]
-* [[Lua/Client/Window/Functions/MakeModal|MakeModal]]
-* [[Lua/Client/Window/Functions/SetClosable|SetClosable]]
-* [[Lua/Client/Window/Functions/SetTitle|SetTitle]]

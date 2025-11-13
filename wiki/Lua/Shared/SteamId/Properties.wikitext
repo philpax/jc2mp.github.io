@@ -1,2 +1,0 @@
-* [[Lua/Shared/SteamId/Properties/id|id]]
-* [[Lua/Shared/SteamId/Properties/string|string]]

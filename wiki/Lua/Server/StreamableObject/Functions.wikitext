@@ -1,7 +1,0 @@
-* [[Lua/Server/StreamableObject/Functions/GetCellId|GetCellId]]
-* [[Lua/Server/StreamableObject/Functions/GetEnabled|GetEnabled]]
-* [[Lua/Server/StreamableObject/Functions/GetStreamDistance|GetStreamDistance]]
-* [[Lua/Server/StreamableObject/Functions/GetWorld|GetWorld]]
-* [[Lua/Server/StreamableObject/Functions/SetEnabled|SetEnabled]]
-* [[Lua/Server/StreamableObject/Functions/SetStreamDistance|SetStreamDistance]]
-* [[Lua/Server/StreamableObject/Functions/SetWorld|SetWorld]]

@@ -1,2 +1,0 @@
-* [[Lua/Client/LocalPlayer/Static_Functions/GetById|GetById]]
-* [[Lua/Client/LocalPlayer/Static_Functions/Match|Match]]

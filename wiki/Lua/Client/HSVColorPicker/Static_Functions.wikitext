@@ -1,1 +1,0 @@
-* [[Lua/Client/HSVColorPicker/Static_Functions/Create|Create]]

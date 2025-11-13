@@ -1,3 +1,0 @@
-* [[Lua/Client/Vertex/Properties/color|color]]
-* [[Lua/Client/Vertex/Properties/position|position]]
-* [[Lua/Client/Vertex/Properties/texcoord|texcoord]]

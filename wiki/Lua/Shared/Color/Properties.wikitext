@@ -1,4 +1,0 @@
-* [[Lua/Shared/Color/Properties/a|a]]
-* [[Lua/Shared/Color/Properties/b|b]]
-* [[Lua/Shared/Color/Properties/g|g]]
-* [[Lua/Shared/Color/Properties/r|r]]

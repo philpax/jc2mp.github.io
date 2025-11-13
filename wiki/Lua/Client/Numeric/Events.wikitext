@@ -1,1 +1,0 @@
-* [[Lua/Client/Numeric/Events/Changed|Changed]]

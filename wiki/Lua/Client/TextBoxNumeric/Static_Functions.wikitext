@@ -1,1 +1,0 @@
-* [[Lua/Client/TextBoxNumeric/Static_Functions/Create|Create]]

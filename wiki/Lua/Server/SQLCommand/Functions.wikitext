@@ -1,1 +1,0 @@
-* [[Lua/Server/SQLCommand/Functions/Execute|Execute]]

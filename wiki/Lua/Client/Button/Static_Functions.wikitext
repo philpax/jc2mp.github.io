@@ -1,1 +1,0 @@
-* [[Lua/Client/Button/Static_Functions/Create|Create]]

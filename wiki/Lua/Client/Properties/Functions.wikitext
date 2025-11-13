@@ -1,5 +1,0 @@
-* [[Lua/Client/Properties/Functions/Add|Add]]
-* [[Lua/Client/Properties/Functions/Clear|Clear]]
-* [[Lua/Client/Properties/Functions/GetSplitWidth|GetSplitWidth]]
-* [[Lua/Client/Properties/Functions/Remove|Remove]]
-* [[Lua/Client/Properties/Functions/SetSplitWidth|SetSplitWidth]]

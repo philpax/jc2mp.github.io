@@ -1,2 +1,0 @@
-* [[Lua/Shared/string/split|split]]
-* [[Lua/Shared/string/trim|trim]]

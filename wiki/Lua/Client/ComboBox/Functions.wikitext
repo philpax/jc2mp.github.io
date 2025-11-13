@@ -1,7 +1,0 @@
-* [[Lua/Client/ComboBox/Functions/AddItem|AddItem]]
-* [[Lua/Client/ComboBox/Functions/ClearItems|ClearItems]]
-* [[Lua/Client/ComboBox/Functions/GetMenuOpen|GetMenuOpen]]
-* [[Lua/Client/ComboBox/Functions/GetSelectedItem|GetSelectedItem]]
-* [[Lua/Client/ComboBox/Functions/RemoveItem|RemoveItem]]
-* [[Lua/Client/ComboBox/Functions/SelectItem|SelectItem]]
-* [[Lua/Client/ComboBox/Functions/SelectItemByName|SelectItemByName]]

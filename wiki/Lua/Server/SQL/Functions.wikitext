@@ -1,5 +1,0 @@
-* [[Lua/Server/SQL/Functions/Command|Command]]
-* [[Lua/Server/SQL/Functions/Execute|Execute]]
-* [[Lua/Server/SQL/Functions/GetLastInsertId|GetLastInsertId]]
-* [[Lua/Server/SQL/Functions/Query|Query]]
-* [[Lua/Server/SQL/Functions/Transaction|Transaction]]

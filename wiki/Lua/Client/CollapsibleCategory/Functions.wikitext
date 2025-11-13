@@ -1,6 +1,0 @@
-* [[Lua/Client/CollapsibleCategory/Functions/Add|Add]]
-* [[Lua/Client/CollapsibleCategory/Functions/GetSelected|GetSelected]]
-* [[Lua/Client/CollapsibleCategory/Functions/Remove|Remove]]
-* [[Lua/Client/CollapsibleCategory/Functions/SetList|SetList]]
-* [[Lua/Client/CollapsibleCategory/Functions/SetText|SetText]]
-* [[Lua/Client/CollapsibleCategory/Functions/UnselectAll|UnselectAll]]

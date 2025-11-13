@@ -1,2 +1,0 @@
-* [[Lua/Client/Image/Static_Functions/Create|Create]]
-* [[Lua/Client/Image/Static_Functions/IsSupported|IsSupported]]

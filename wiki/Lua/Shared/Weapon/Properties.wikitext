@@ -1,3 +1,0 @@
-* [[Lua/Shared/Weapon/Properties/ammo_clip|ammo clip]]
-* [[Lua/Shared/Weapon/Properties/ammo_reserve|ammo reserve]]
-* [[Lua/Shared/Weapon/Properties/id|id]]

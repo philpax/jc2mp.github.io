@@ -1,1 +1,0 @@
-* [[Lua/Server/World/Static_Functions/Create|Create]]

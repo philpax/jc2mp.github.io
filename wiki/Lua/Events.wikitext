@@ -1,3 +1,0 @@
-* [[Lua/Events/Client|Client]]
-* [[Lua/Events/Server|Server]]
-* [[Lua/Events/Shared|Shared]]

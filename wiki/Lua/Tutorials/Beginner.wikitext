@@ -1,7 +1,0 @@
-* [[Lua/Tutorials/Beginner/Beginner|Beginner]]
-* [[Lua/Tutorials/Beginner/Client-side_scripts|Client-side scripts]]
-* [[Lua/Tutorials/Beginner/Cross-module_communication|Cross-module communication]]
-* [[Lua/Tutorials/Beginner/Learning_Lua|Learning Lua]]
-* [[Lua/Tutorials/Beginner/Module_loading_process|Module loading process]]
-* [[Lua/Tutorials/Beginner/Server-client_communication|Server-client communication]]
-* [[Lua/Tutorials/Beginner/Your_first_gamemode|Your first gamemode]]

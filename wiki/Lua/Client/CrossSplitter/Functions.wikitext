@@ -1,7 +1,0 @@
-* [[Lua/Client/CrossSplitter/Functions/CenterPanels|CenterPanels]]
-* [[Lua/Client/CrossSplitter/Functions/GetPanel|GetPanel]]
-* [[Lua/Client/CrossSplitter/Functions/GetZoomed|GetZoomed]]
-* [[Lua/Client/CrossSplitter/Functions/SetPanel|SetPanel]]
-* [[Lua/Client/CrossSplitter/Functions/SetSplitterSize|SetSplitterSize]]
-* [[Lua/Client/CrossSplitter/Functions/Unzoom|Unzoom]]
-* [[Lua/Client/CrossSplitter/Functions/Zoom|Zoom]]

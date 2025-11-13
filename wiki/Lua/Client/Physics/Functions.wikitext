@@ -1,2 +1,0 @@
-* [[Lua/Client/Physics/Functions/GetTerrainHeight|GetTerrainHeight]]
-* [[Lua/Client/Physics/Functions/Raycast|Raycast]]

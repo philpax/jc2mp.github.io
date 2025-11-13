@@ -1,3 +1,0 @@
-* [[Lua/Shared/MD5/Functions/Final|Final]]
-* [[Lua/Shared/MD5/Functions/Restart|Restart]]
-* [[Lua/Shared/MD5/Functions/Update|Update]]

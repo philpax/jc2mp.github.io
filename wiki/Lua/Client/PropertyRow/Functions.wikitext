@@ -1,2 +1,0 @@
-* [[Lua/Client/PropertyRow/Functions/GetLabel|GetLabel]]
-* [[Lua/Client/PropertyRow/Functions/GetProperty|GetProperty]]

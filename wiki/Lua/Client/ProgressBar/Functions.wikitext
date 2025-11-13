@@ -1,7 +1,0 @@
-* [[Lua/Client/ProgressBar/Functions/GetCycleSpeed|GetCycleSpeed]]
-* [[Lua/Client/ProgressBar/Functions/GetValue|GetValue]]
-* [[Lua/Client/ProgressBar/Functions/SetAutoLabel|SetAutoLabel]]
-* [[Lua/Client/ProgressBar/Functions/SetCycleSpeed|SetCycleSpeed]]
-* [[Lua/Client/ProgressBar/Functions/SetHorizontal|SetHorizontal]]
-* [[Lua/Client/ProgressBar/Functions/SetValue|SetValue]]
-* [[Lua/Client/ProgressBar/Functions/SetVertical|SetVertical]]

@@ -1,5 +1,0 @@
-* [[Lua/Shared/Angle/Static_Functions/AngleAxis|AngleAxis]]
-* [[Lua/Shared/Angle/Static_Functions/Dot|Dot]]
-* [[Lua/Shared/Angle/Static_Functions/FromVectors|FromVectors]]
-* [[Lua/Shared/Angle/Static_Functions/Inverse|Inverse]]
-* [[Lua/Shared/Angle/Static_Functions/Slerp|Slerp]]

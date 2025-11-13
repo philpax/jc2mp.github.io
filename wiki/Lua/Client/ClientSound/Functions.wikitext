@@ -1,7 +1,0 @@
-* [[Lua/Client/ClientSound/Functions/GetBankId|GetBankId]]
-* [[Lua/Client/ClientSound/Functions/GetSoundId|GetSoundId]]
-* [[Lua/Client/ClientSound/Functions/IsPlaying|IsPlaying]]
-* [[Lua/Client/ClientSound/Functions/Play|Play]]
-* [[Lua/Client/ClientSound/Functions/Remove|Remove]]
-* [[Lua/Client/ClientSound/Functions/SetParameter|SetParameter]]
-* [[Lua/Client/ClientSound/Functions/Stop|Stop]]

@@ -1,2 +1,0 @@
-* [[Lua/Client/Bone/Properties/name|name]]
-* [[Lua/Client/Bone/Properties/position|position]]

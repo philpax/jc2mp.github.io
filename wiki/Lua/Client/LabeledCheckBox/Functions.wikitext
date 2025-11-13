@@ -1,2 +1,0 @@
-* [[Lua/Client/LabeledCheckBox/Functions/GetCheckBox|GetCheckBox]]
-* [[Lua/Client/LabeledCheckBox/Functions/GetLabel|GetLabel]]

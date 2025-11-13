@@ -1,2 +1,0 @@
-* [[Lua/Shared/Vector2/Properties/x|x]]
-* [[Lua/Shared/Vector2/Properties/y|y]]

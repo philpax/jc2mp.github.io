@@ -1,4 +1,0 @@
-* [[Lua/Client/LocalPlayer/Functions/GetAimTarget|GetAimTarget]]
-* [[Lua/Client/LocalPlayer/Functions/GetMoney|GetMoney]]
-* [[Lua/Client/LocalPlayer/Functions/SetBaseState|SetBaseState]]
-* [[Lua/Client/LocalPlayer/Functions/SetUpperBodyState|SetUpperBodyState]]

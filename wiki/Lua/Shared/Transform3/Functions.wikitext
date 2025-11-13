@@ -1,5 +1,0 @@
-* [[Lua/Shared/Transform3/Functions/Invert|Invert]]
-* [[Lua/Shared/Transform3/Functions/Rotate|Rotate]]
-* [[Lua/Shared/Transform3/Functions/Scale|Scale]]
-* [[Lua/Shared/Transform3/Functions/SetIdentity|SetIdentity]]
-* [[Lua/Shared/Transform3/Functions/Translate|Translate]]

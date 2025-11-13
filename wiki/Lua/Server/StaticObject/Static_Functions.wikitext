@@ -1,2 +1,0 @@
-* [[Lua/Server/StaticObject/Static_Functions/Create|Create]]
-* [[Lua/Server/StaticObject/Static_Functions/GetById|GetById]]

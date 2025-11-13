@@ -1,2 +1,0 @@
-* [[Lua/Server/CellID/Properties/x|x]]
-* [[Lua/Server/CellID/Properties/y|y]]

@@ -1,1 +1,0 @@
-* [[Lua/Client/World/Functions/GetId|GetId]]

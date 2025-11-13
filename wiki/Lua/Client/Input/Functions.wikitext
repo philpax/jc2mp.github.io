@@ -1,4 +1,0 @@
-* [[Lua/Client/Input/Functions/GetEnabled|GetEnabled]]
-* [[Lua/Client/Input/Functions/GetValue|GetValue]]
-* [[Lua/Client/Input/Functions/SetEnabled|SetEnabled]]
-* [[Lua/Client/Input/Functions/SetValue|SetValue]]

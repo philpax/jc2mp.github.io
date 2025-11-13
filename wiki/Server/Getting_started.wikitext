@@ -1,3 +1,0 @@
-* [[Server/Getting_started/FreeBSD_Server|FreeBSD Server]]
-* [[Server/Getting_started/Linux_Server|Linux Server]]
-* [[Server/Getting_started/Windows_Server|Windows Server]]

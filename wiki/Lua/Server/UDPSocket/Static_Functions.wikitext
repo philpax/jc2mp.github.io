@@ -1,1 +1,0 @@
-* [[Lua/Server/UDPSocket/Static_Functions/Create|Create]]

@@ -1,4 +1,0 @@
-* [[Lua/Client/Camera/Functions/GetAngle|GetAngle]]
-* [[Lua/Client/Camera/Functions/GetPosition|GetPosition]]
-* [[Lua/Client/Camera/Functions/SetAngle|SetAngle]]
-* [[Lua/Client/Camera/Functions/SetPosition|SetPosition]]

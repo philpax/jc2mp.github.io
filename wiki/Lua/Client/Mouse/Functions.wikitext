@@ -1,4 +1,0 @@
-* [[Lua/Client/Mouse/Functions/GetPosition|GetPosition]]
-* [[Lua/Client/Mouse/Functions/GetVisible|GetVisible]]
-* [[Lua/Client/Mouse/Functions/SetPosition|SetPosition]]
-* [[Lua/Client/Mouse/Functions/SetVisible|SetVisible]]

@@ -1,4 +1,0 @@
-* [[Lua/Shared/Network/Functions/Broadcast|Broadcast]]
-* [[Lua/Shared/Network/Functions/Send|Send]]
-* [[Lua/Shared/Network/Functions/SendNearby|SendNearby]]
-* [[Lua/Shared/Network/Functions/SendToPlayers|SendToPlayers]]

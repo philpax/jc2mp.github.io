@@ -1,2 +1,0 @@
-* [[Lua/Server/Chat/Functions/Broadcast|Broadcast]]
-* [[Lua/Server/Chat/Functions/Send|Send]]

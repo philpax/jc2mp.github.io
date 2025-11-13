@@ -1,6 +1,0 @@
-* [[Lua/Shared/Timer/Functions/GetHours|GetHours]]
-* [[Lua/Shared/Timer/Functions/GetMicroseconds|GetMicroseconds]]
-* [[Lua/Shared/Timer/Functions/GetMilliseconds|GetMilliseconds]]
-* [[Lua/Shared/Timer/Functions/GetMinutes|GetMinutes]]
-* [[Lua/Shared/Timer/Functions/GetSeconds|GetSeconds]]
-* [[Lua/Shared/Timer/Functions/Restart|Restart]]

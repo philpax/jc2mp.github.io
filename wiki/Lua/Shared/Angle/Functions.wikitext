@@ -1,3 +1,0 @@
-* [[Lua/Shared/Angle/Functions/DegreesString|DegreesString]]
-* [[Lua/Shared/Angle/Functions/Dot|Dot]]
-* [[Lua/Shared/Angle/Functions/Inverse|Inverse]]

@@ -1,2 +1,0 @@
-* [[Lua/Server/Player/Static_Functions/GetById|GetById]]
-* [[Lua/Server/Player/Static_Functions/Match|Match]]

@@ -1,5 +1,0 @@
-* [[Lua/Client/Chat/Functions/GetActive|GetActive]]
-* [[Lua/Client/Chat/Functions/GetEnabled|GetEnabled]]
-* [[Lua/Client/Chat/Functions/Print|Print]]
-* [[Lua/Client/Chat/Functions/SetActive|SetActive]]
-* [[Lua/Client/Chat/Functions/SetEnabled|SetEnabled]]

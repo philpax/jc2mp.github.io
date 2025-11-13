@@ -1,2 +1,0 @@
-* [[Lua/Client/ClientSound/Static_Functions/Create|Create]]
-* [[Lua/Client/ClientSound/Static_Functions/Play|Play]]

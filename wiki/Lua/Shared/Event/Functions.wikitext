@@ -1,1 +1,0 @@
-* [[Lua/Shared/Event/Functions/GetName|GetName]]

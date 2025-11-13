@@ -1,6 +1,0 @@
-* [[Lua/Shared/Vector3/Static_Functions/Cross|Cross]]
-* [[Lua/Shared/Vector3/Static_Functions/Distance|Distance]]
-* [[Lua/Shared/Vector3/Static_Functions/Distance2D|Distance2D]]
-* [[Lua/Shared/Vector3/Static_Functions/DistanceSqr|DistanceSqr]]
-* [[Lua/Shared/Vector3/Static_Functions/DistanceSqr2D|DistanceSqr2D]]
-* [[Lua/Shared/Vector3/Static_Functions/Dot|Dot]]

@@ -1,3 +1,0 @@
-* [[Lua/Client/Vehicle/Static_Functions/GetById|GetById]]
-* [[Lua/Client/Vehicle/Static_Functions/GetMassByModelId|GetMassByModelId]]
-* [[Lua/Client/Vehicle/Static_Functions/GetNameByModelId|GetNameByModelId]]

@@ -1,5 +1,0 @@
-* [[Lua/Client/ClientParticleSystem/Functions/GetPath|GetPath]]
-* [[Lua/Client/ClientParticleSystem/Functions/IsPlaying|IsPlaying]]
-* [[Lua/Client/ClientParticleSystem/Functions/Play|Play]]
-* [[Lua/Client/ClientParticleSystem/Functions/Remove|Remove]]
-* [[Lua/Client/ClientParticleSystem/Functions/Stop|Stop]]

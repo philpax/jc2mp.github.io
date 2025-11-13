@@ -1,4 +1,0 @@
-* [[Lua/Client/ImagePanel/Functions/Failed|Failed]]
-* [[Lua/Client/ImagePanel/Functions/GetTextureSize|GetTextureSize]]
-* [[Lua/Client/ImagePanel/Functions/SetImage|SetImage]]
-* [[Lua/Client/ImagePanel/Functions/SetUV|SetUV]]

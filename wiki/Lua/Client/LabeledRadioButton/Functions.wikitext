@@ -1,3 +1,0 @@
-* [[Lua/Client/LabeledRadioButton/Functions/GetLabel|GetLabel]]
-* [[Lua/Client/LabeledRadioButton/Functions/GetRadioButton|GetRadioButton]]
-* [[Lua/Client/LabeledRadioButton/Functions/Select|Select]]
