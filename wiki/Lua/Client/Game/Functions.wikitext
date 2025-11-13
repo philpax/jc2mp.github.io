@@ -1,0 +1,8 @@
+* [[Lua/Client/Game/Functions/FireEvent|FireEvent]]
+* [[Lua/Client/Game/Functions/GetHeat|GetHeat]]
+* [[Lua/Client/Game/Functions/GetSetting|GetSetting]]
+* [[Lua/Client/Game/Functions/GetState|GetState]]
+* [[Lua/Client/Game/Functions/GetTime|GetTime]]
+* [[Lua/Client/Game/Functions/ResetHeat|ResetHeat]]
+* [[Lua/Client/Game/Functions/SetHeat|SetHeat]]
+* [[Lua/Client/Game/Functions/ShowPopup|ShowPopup]]

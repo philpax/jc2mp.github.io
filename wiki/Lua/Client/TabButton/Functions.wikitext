@@ -1,0 +1,5 @@
+* [[Lua/Client/TabButton/Functions/GetActive|GetActive]]
+* [[Lua/Client/TabButton/Functions/GetPage|GetPage]]
+* [[Lua/Client/TabButton/Functions/GetTabControl|GetTabControl]]
+* [[Lua/Client/TabButton/Functions/SetPage|SetPage]]
+* [[Lua/Client/TabButton/Functions/SetTabControl|SetTabControl]]

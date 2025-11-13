@@ -1,0 +1,2 @@
+* [[Lua/Shared/math/clamp|clamp]]
+* [[Lua/Shared/math/lerp|lerp]]

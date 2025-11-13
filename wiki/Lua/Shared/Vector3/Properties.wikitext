@@ -1,0 +1,3 @@
+* [[Lua/Shared/Vector3/Properties/x|x]]
+* [[Lua/Shared/Vector3/Properties/y|y]]
+* [[Lua/Shared/Vector3/Properties/z|z]]

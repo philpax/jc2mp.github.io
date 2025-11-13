@@ -1,0 +1,1 @@
+* [[Lua/Client/StatusBar/Static_Functions/Create|Create]]

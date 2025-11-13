@@ -1,0 +1,1 @@
+* [[Lua/Client/StaticObject/Functions/GetId|GetId]]

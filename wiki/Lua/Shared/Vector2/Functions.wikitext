@@ -1,0 +1,7 @@
+* [[Lua/Shared/Vector2/Functions/Distance|Distance]]
+* [[Lua/Shared/Vector2/Functions/DistanceSqr|DistanceSqr]]
+* [[Lua/Shared/Vector2/Functions/Dot|Dot]]
+* [[Lua/Shared/Vector2/Functions/Length|Length]]
+* [[Lua/Shared/Vector2/Functions/LengthSqr|LengthSqr]]
+* [[Lua/Shared/Vector2/Functions/Normalize|Normalize]]
+* [[Lua/Shared/Vector2/Functions/Normalized|Normalized]]

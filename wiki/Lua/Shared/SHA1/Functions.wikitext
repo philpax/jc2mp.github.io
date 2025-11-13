@@ -1,0 +1,3 @@
+* [[Lua/Shared/SHA1/Functions/Final|Final]]
+* [[Lua/Shared/SHA1/Functions/Restart|Restart]]
+* [[Lua/Shared/SHA1/Functions/Update|Update]]

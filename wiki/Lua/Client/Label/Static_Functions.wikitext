@@ -1,0 +1,1 @@
+* [[Lua/Client/Label/Static_Functions/Create|Create]]

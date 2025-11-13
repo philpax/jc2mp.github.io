@@ -1,0 +1,4 @@
+* [[Lua/Client/Numeric/Functions/SetMaximum|SetMaximum]]
+* [[Lua/Client/Numeric/Functions/SetMinimum|SetMinimum]]
+* [[Lua/Client/Numeric/Functions/SetRange|SetRange]]
+* [[Lua/Client/Numeric/Functions/SetValue|SetValue]]

@@ -1,0 +1,2 @@
+* [[Lua/Shared/Console/Functions/Print|Print]]
+* [[Lua/Shared/Console/Functions/Run|Run]]

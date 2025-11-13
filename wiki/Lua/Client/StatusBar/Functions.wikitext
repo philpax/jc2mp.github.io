@@ -1,0 +1,1 @@
+* [[Lua/Client/StatusBar/Functions/AddControl|AddControl]]

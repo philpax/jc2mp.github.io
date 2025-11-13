@@ -1,0 +1,1 @@
+* [[Lua/Shared/MD5/Static_Functions/ComputeHash|ComputeHash]]

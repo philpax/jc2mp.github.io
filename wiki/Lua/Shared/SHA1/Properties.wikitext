@@ -1,0 +1,1 @@
+* [[Lua/Shared/SHA1/Properties/digest|digest]]

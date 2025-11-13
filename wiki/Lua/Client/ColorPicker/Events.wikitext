@@ -1,0 +1,1 @@
+* [[Lua/Client/ColorPicker/Events/ColorChanged|ColorChanged]]

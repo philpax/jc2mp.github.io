@@ -1,0 +1,6 @@
+* [[Lua/Tutorials/Intermediate/A_tank_that_shoots_tanks|A tank that shoots tanks]]
+* [[Lua/Tutorials/Intermediate/Creating_a_speedometer|Creating a speedometer]]
+* [[Lua/Tutorials/Intermediate/Example_PDA_Map|Example PDA Map]]
+* [[Lua/Tutorials/Intermediate/Iterators|Iterators]]
+* [[Lua/Tutorials/Intermediate/SQL|SQL]]
+* [[Lua/Tutorials/Intermediate/Weather|Weather]]

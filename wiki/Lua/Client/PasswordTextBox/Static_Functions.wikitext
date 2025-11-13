@@ -1,0 +1,1 @@
+* [[Lua/Client/PasswordTextBox/Static_Functions/Create|Create]]

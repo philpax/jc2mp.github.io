@@ -1,0 +1,2 @@
+* [[Lua/Client/Rectangle/Functions/GetColor|GetColor]]
+* [[Lua/Client/Rectangle/Functions/SetColor|SetColor]]

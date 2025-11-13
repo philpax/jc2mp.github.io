@@ -1,0 +1,5 @@
+* [[Lua/Client/Client/Functions/GetElapsedSeconds|GetElapsedSeconds]]
+* [[Lua/Client/Client/Functions/GetPlayers|GetPlayers]]
+* [[Lua/Client/Client/Functions/GetStaticObjects|GetStaticObjects]]
+* [[Lua/Client/Client/Functions/GetStreamedPlayers|GetStreamedPlayers]]
+* [[Lua/Client/Client/Functions/GetVehicles|GetVehicles]]

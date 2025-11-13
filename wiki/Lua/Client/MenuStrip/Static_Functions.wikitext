@@ -1,0 +1,1 @@
+* [[Lua/Client/MenuStrip/Static_Functions/Create|Create]]

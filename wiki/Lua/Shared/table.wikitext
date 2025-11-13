@@ -1,0 +1,3 @@
+* [[Lua/Shared/table/count|count]]
+* [[Lua/Shared/table/find|find]]
+* [[Lua/Shared/table/randomvalue|randomvalue]]

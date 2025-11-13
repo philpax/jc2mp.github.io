@@ -1,0 +1,2 @@
+* [[Lua/Server/Config/Functions/GetValue|GetValue]]
+* [[Lua/Server/Config/Functions/SetValue|SetValue]]

@@ -1,0 +1,7 @@
+* [[Lua/Shared/Angle/Properties/pitch|pitch]]
+* [[Lua/Shared/Angle/Properties/roll|roll]]
+* [[Lua/Shared/Angle/Properties/w|w]]
+* [[Lua/Shared/Angle/Properties/x|x]]
+* [[Lua/Shared/Angle/Properties/y|y]]
+* [[Lua/Shared/Angle/Properties/yaw|yaw]]
+* [[Lua/Shared/Angle/Properties/z|z]]

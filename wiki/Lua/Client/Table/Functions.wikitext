@@ -1,0 +1,8 @@
+* [[Lua/Client/Table/Functions/AddRow|AddRow]]
+* [[Lua/Client/Table/Functions/Clear|Clear]]
+* [[Lua/Client/Table/Functions/GetRow|GetRow]]
+* [[Lua/Client/Table/Functions/GetRowCount|GetRowCount]]
+* [[Lua/Client/Table/Functions/RemoveRow|RemoveRow]]
+* [[Lua/Client/Table/Functions/SetColumnCount|SetColumnCount]]
+* [[Lua/Client/Table/Functions/SetColumnWidth|SetColumnWidth]]
+* [[Lua/Client/Table/Functions/SizeToContents|SizeToContents]]

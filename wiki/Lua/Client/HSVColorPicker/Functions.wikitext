@@ -1,0 +1,2 @@
+* [[Lua/Client/HSVColorPicker/Functions/GetColor|GetColor]]
+* [[Lua/Client/HSVColorPicker/Functions/SetColor|SetColor]]

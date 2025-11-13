@@ -1,0 +1,1 @@
+* [[Lua/Client/ImagePanel/Static_Functions/Create|Create]]

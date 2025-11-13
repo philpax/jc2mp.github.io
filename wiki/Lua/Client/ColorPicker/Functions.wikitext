@@ -1,0 +1,3 @@
+* [[Lua/Client/ColorPicker/Functions/GetColor|GetColor]]
+* [[Lua/Client/ColorPicker/Functions/SetAlphaVisible|SetAlphaVisible]]
+* [[Lua/Client/ColorPicker/Functions/SetColor|SetColor]]

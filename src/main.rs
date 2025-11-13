@@ -51,6 +51,88 @@ fn copy_files_recursively(src: &Path, dst: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
+fn generate_missing_index_pages(dir: &Path) -> anyhow::Result<()> {
+    let entries = fs::read_dir(dir)?;
+    let mut subdirs = Vec::new();
+    let mut files = std::collections::HashSet::new();
+
+    for entry in entries {
+        let entry = entry?;
+        let path = entry.path();
+
+        if path.is_dir() {
+            subdirs.push(path);
+        } else if path.extension().and_then(|s| s.to_str()) == Some("wikitext") {
+            if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                files.insert(stem.to_string());
+            }
+        }
+    }
+
+    // For each subdirectory, check if there's a corresponding .wikitext file
+    for subdir in subdirs {
+        let dir_name = subdir.file_name().unwrap().to_str().unwrap();
+
+        // Skip if there's already a wikitext file for this directory
+        if files.contains(dir_name) {
+            continue;
+        }
+
+        // Generate index page for this directory
+        let children = get_directory_children(&subdir)?;
+
+        if children.is_empty() {
+            continue;
+        }
+
+        // Get the relative path from WIKI_DIRECTORY
+        let relative_path = subdir.strip_prefix(WIKI_DIRECTORY)
+            .unwrap_or(&subdir)
+            .to_str()
+            .unwrap()
+            .replace("\\", "/");
+
+        // Generate wikitext content
+        let mut content = String::new();
+        for child_name in children {
+            let display_name = child_name.replace("_", " ");
+            content.push_str(&format!("* [[{}/{}|{}]]\n", relative_path, child_name, display_name));
+        }
+
+        // Write the index file
+        let index_file = dir.join(format!("{}.wikitext", dir_name));
+        fs::write(&index_file, content)?;
+    }
+
+    Ok(())
+}
+
+fn get_directory_children(dir: &Path) -> anyhow::Result<Vec<String>> {
+    use std::collections::BTreeSet;
+
+    let mut children = BTreeSet::new();
+
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+
+        if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("wikitext") {
+            if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                children.insert(stem.to_string());
+            }
+        } else if path.is_dir() {
+            if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
+                // Only add directory if there's no file with the same name
+                if !children.contains(name) {
+                    children.insert(name.to_string());
+                }
+            }
+        }
+    }
+
+    Ok(children.into_iter().collect())
+}
+
 fn generate_wiki(src: &Path, dst: &Path) -> anyhow::Result<()> {
     fs::create_dir_all(dst)?;
 
@@ -82,6 +164,9 @@ fn generate_wiki_folder(
     pwt_configuration: &parse_wiki_text_2::Configuration,
 ) -> anyhow::Result<()> {
     fs::create_dir_all(dst)?;
+
+    // First, generate missing index pages for subdirectories
+    generate_missing_index_pages(src)?;
 
     let files = fs::read_dir(src)?;
     for file in files {

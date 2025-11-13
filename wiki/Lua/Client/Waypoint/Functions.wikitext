@@ -1,0 +1,3 @@
+* [[Lua/Client/Waypoint/Functions/GetPosition|GetPosition]]
+* [[Lua/Client/Waypoint/Functions/Remove|Remove]]
+* [[Lua/Client/Waypoint/Functions/SetPosition|SetPosition]]

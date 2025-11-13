@@ -1,0 +1,4 @@
+* [[Lua/Shared/Events/Functions/Fire|Fire]]
+* [[Lua/Shared/Events/Functions/FireRegisteredEvent|FireRegisteredEvent]]
+* [[Lua/Shared/Events/Functions/Register|Register]]
+* [[Lua/Shared/Events/Functions/Unregister|Unregister]]
