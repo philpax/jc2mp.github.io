@@ -1,4 +1,9 @@
-use std::{fs, path::Path, sync::OnceLock};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fs,
+    path::Path,
+    sync::OnceLock,
+};
 
 use template::{TemplateToInstantiate, Templates};
 use wikitext_simplified::{WikitextSimplifiedNode, wikitext_util::parse_wiki_text_2};
@@ -12,6 +17,12 @@ mod template;
 const WIKI_DIRECTORY: &str = "wiki";
 
 static SYNTAX_HIGHLIGHTER: OnceLock<syntax::SyntaxHighlighter> = OnceLock::new();
+
+#[derive(Debug, Default)]
+struct GeneratedPages {
+    // Maps directory path (relative to wiki root) to set of page names (without .html)
+    pages_by_directory: BTreeMap<String, BTreeSet<String>>,
+}
 
 fn main() -> anyhow::Result<()> {
     let output_dir = Path::new("output");
@@ -51,6 +62,140 @@ fn copy_files_recursively(src: &Path, dst: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
+fn generate_missing_index_pages(dst_root: &Path, generated: &GeneratedPages) -> anyhow::Result<()> {
+    // Collect all directory paths that need index pages
+    let mut dirs_needing_index = BTreeSet::new();
+
+    // For each directory that has pages, check if its parent has a corresponding page
+    for dir_path in generated.pages_by_directory.keys() {
+        if dir_path.is_empty() {
+            continue;
+        }
+
+        // Split the path to get parent and directory name
+        let parts: Vec<&str> = dir_path.split('/').collect();
+        let dir_name = parts.last().unwrap();
+        let parent_path = if parts.len() == 1 {
+            String::new()
+        } else {
+            parts[..parts.len() - 1].join("/")
+        };
+
+        // Check if parent directory has a page with this directory's name
+        let parent_pages = generated
+            .pages_by_directory
+            .get(&parent_path)
+            .cloned()
+            .unwrap_or_default();
+
+        if !parent_pages.contains(*dir_name) {
+            // This directory doesn't have a corresponding page in its parent
+            dirs_needing_index.insert(dir_path.clone());
+        }
+    }
+
+    // Generate index pages for all directories that need them
+    for dir_path in dirs_needing_index {
+        let parts: Vec<&str> = dir_path.split('/').collect();
+        let dir_name = parts.last().unwrap();
+        let parent_path = if parts.len() == 1 {
+            String::new()
+        } else {
+            parts[..parts.len() - 1].join("/")
+        };
+
+        generate_index_page(dst_root, &parent_path, dir_name, generated)?;
+    }
+
+    Ok(())
+}
+
+fn generate_index_page(
+    dst_root: &Path,
+    parent_path: &str,
+    dir_name: &str,
+    generated: &GeneratedPages,
+) -> anyhow::Result<()> {
+    let full_path = if parent_path.is_empty() {
+        dir_name.to_string()
+    } else {
+        format!("{}/{}", parent_path, dir_name)
+    };
+
+    // Get all children (pages and subdirectories) in this directory
+    let pages_in_dir = generated
+        .pages_by_directory
+        .get(&full_path)
+        .cloned()
+        .unwrap_or_default();
+
+    // Get all subdirectories
+    let mut subdirs = BTreeSet::new();
+    for other_dir in generated.pages_by_directory.keys() {
+        if other_dir.starts_with(&full_path) && other_dir != &full_path {
+            let remainder = other_dir
+                .strip_prefix(&full_path)
+                .and_then(|s| s.strip_prefix('/'))
+                .unwrap_or(other_dir);
+
+            if let Some(first_component) = remainder.split('/').next()
+                && !first_component.is_empty()
+                && !pages_in_dir.contains(first_component)
+            {
+                subdirs.insert(first_component.to_string());
+            }
+        }
+    }
+
+    // Combine pages and subdirectories, sorted alphabetically
+    let mut all_children: BTreeSet<String> = pages_in_dir.clone();
+    all_children.extend(subdirs);
+
+    if all_children.is_empty() {
+        return Ok(());
+    }
+
+    // Generate the HTML content
+    let title = full_path.replace('_', " ");
+    let mut items = Vec::new();
+    for child in all_children {
+        let display_name = child.replace('_', " ");
+        let link_path = format!("{}/{}", full_path, child);
+        items.push(paxhtml::html! {
+            <li class="ml-4">
+                <a class="text-blue-600 hover:text-blue-800 hover:underline" href={page_title_to_route_path(&link_path).url_path()}>
+                    {display_name}
+                </a>
+            </li>
+        });
+    }
+
+    let content = paxhtml::html! {
+        <ul class="list-disc list-inside">#{items}</ul>
+    };
+
+    let document = layout(&title, content);
+
+    // Write the document
+    let route_path = page_title_to_route_path(&full_path);
+    document.write_to_route(dst_root, route_path.clone())?;
+
+    // Also create a redirect from full_path/index.html to full_path.html
+    // This allows both /category and /category/ to work
+    let redirect_doc = redirect(&route_path.url_path());
+    let redirect_route = paxhtml::RoutePath::new(
+        route_path
+            .url_path()
+            .trim_start_matches('/')
+            .trim_end_matches(".html")
+            .split('/'),
+        Some("index.html".to_string()),
+    );
+    redirect_doc.write_to_route(dst_root, redirect_route)?;
+
+    Ok(())
+}
+
 fn generate_wiki(src: &Path, dst: &Path) -> anyhow::Result<()> {
     fs::create_dir_all(dst)?;
 
@@ -67,7 +212,20 @@ fn generate_wiki(src: &Path, dst: &Path) -> anyhow::Result<()> {
     fs::create_dir_all(output_dir.join("style"))?;
     fs::write(output_dir.join("style/syntax.css"), syntax_css)?;
 
-    generate_wiki_folder(&mut templates, src, dst, dst, &pwt_configuration)?;
+    let mut generated = GeneratedPages::default();
+    generate_wiki_folder(
+        &mut templates,
+        src,
+        dst,
+        dst,
+        &pwt_configuration,
+        "",
+        &mut generated,
+    )?;
+
+    // Generate missing index pages
+    generate_missing_index_pages(output_dir, &generated)?;
+
     redirect(&page_title_to_route_path("Main_Page").url_path())
         .write_to_route(dst, paxhtml::RoutePath::new([], "index.html".to_string()))?;
 
@@ -80,6 +238,8 @@ fn generate_wiki_folder(
     dst_root: &Path,
     dst: &Path,
     pwt_configuration: &parse_wiki_text_2::Configuration,
+    relative_path: &str,
+    generated: &mut GeneratedPages,
 ) -> anyhow::Result<()> {
     fs::create_dir_all(dst)?;
 
@@ -89,12 +249,20 @@ fn generate_wiki_folder(
         let path = file.path();
 
         if path.is_dir() {
+            let dir_name = path.file_name().unwrap().to_str().unwrap();
+            let new_relative_path = if relative_path.is_empty() {
+                dir_name.to_string()
+            } else {
+                format!("{}/{}", relative_path, dir_name)
+            };
             generate_wiki_folder(
                 templates,
                 &path,
                 dst_root,
                 &dst.join(path.file_name().unwrap()),
                 pwt_configuration,
+                &new_relative_path,
+                generated,
             )?;
             continue;
         }
@@ -140,7 +308,7 @@ fn generate_wiki_folder(
                 .to_string();
 
             let page_context = PageContext {
-                input_path: path,
+                input_path: path.clone(),
                 title: output_html_rel
                     .with_extension("")
                     .to_str()
@@ -161,6 +329,19 @@ fn generate_wiki_folder(
         };
 
         document.write_to_route(dst_root, route_path)?;
+
+        // Track this generated page
+        let page_name = path
+            .with_extension("")
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
+        generated
+            .pages_by_directory
+            .entry(relative_path.to_string())
+            .or_default()
+            .insert(page_name);
     }
 
     Ok(())
