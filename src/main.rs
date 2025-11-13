@@ -178,7 +178,20 @@ fn generate_index_page(
 
     // Write the document
     let route_path = page_title_to_route_path(&full_path);
-    document.write_to_route(dst_root, route_path)?;
+    document.write_to_route(dst_root, route_path.clone())?;
+
+    // Also create a redirect from full_path/index.html to full_path.html
+    // This allows both /category and /category/ to work
+    let redirect_doc = redirect(&route_path.url_path());
+    let redirect_route = paxhtml::RoutePath::new(
+        route_path
+            .url_path()
+            .trim_start_matches('/')
+            .trim_end_matches(".html")
+            .split('/'),
+        Some("index.html".to_string()),
+    );
+    redirect_doc.write_to_route(dst_root, redirect_route)?;
 
     Ok(())
 }
